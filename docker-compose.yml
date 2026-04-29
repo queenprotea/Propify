@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: inmobiliaria_db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB:       ${DB_NAME}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Script de inicialización (tablas, seeds, etc.)
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval:    10s
+      timeout:      5s
+      retries:       5
+      start_period: 15s
+
+    networks:
+      - backend_net
+    ports:
+      - "127.0.0.1:5432:5432"   # Bind solo a loopback → no expuesto a la LAN
+
+
+  #app:
+  #  build:
+  #    context: .
+  #    dockerfile: Dockerfile
+  #  container_name: inmobiliaria_app
+  #  restart: unless-stopped
+
+  #  environment:
+      #   postgresql://<user>:<pass>@<service_name>:<port>/<db>
+  #    DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+  #    NODE_ENV:     ${NODE_ENV:-production}
+  #    PORT:         ${APP_PORT:-3000}
+
+  #  ports:
+  #    - "${APP_PORT:-3000}:3000"
+  #  depends_on:
+  #    db:
+  #      condition: service_healthy
+
+   # networks:
+    #  - backend_net
+
+    # volumes:
+    #   - .:/app
+    #   - /app/node_modules
+
+
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  backend_net:
+    driver: bridge
