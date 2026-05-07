@@ -29,6 +29,70 @@ services:
     ports:
       - "127.0.0.1:5432:5432"   # Bind solo a loopback → no expuesto a la LAN
 
+  user_service:
+    build: ./backend/user-service
+    container_name: propify_user_service
+    env_file:
+      - .env
+    environment: 
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+    ports:
+      - "8001:8001"
+    command: >
+      sh -c "
+        until pg_isready -h db -U ${DB_USER}; do
+          echo 'Esperando a PostgreSQL...';
+          sleep 2;
+        done;
+        echo 'Base de datos lista';
+        uvicorn app.main:app --host 0.0.0.0 --port 8001"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_net
+
+
+# property service
+  property_service:
+    build: ./backend/property-service
+    container_name: propify_property_service
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    ports:
+      - "8002:8002"
+    command: >
+      sh -c "
+        echo 'Esperando a PostgreSQL...';
+        until pg_isready -h db -U ${DB_USER}; do
+          sleep 2;
+        done;
+        echo 'Iniciando servidor...';
+        uvicorn app.main:app --host 0.0.0.0 --port 8002"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_net
+    volumes:
+      - propertyImages:/app/static
+
+# API Gateway
+  api_gateway:
+    build: ./backend/gateway
+    container_name: propify_gateway
+    ports:
+      - "8080:80"
+    depends_on:
+      user_service:
+          condition: service_started
+      property_service:
+          condition: service_started
+    networks:
+      - backend_net
 
   #app:
   #  build:
@@ -59,6 +123,7 @@ services:
 
 
 volumes:
+  propertyImages:
   postgres_data:
     driver: local
 
