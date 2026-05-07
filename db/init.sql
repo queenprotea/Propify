@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS "Inmueble" (
     descripcion          TEXT,
     precio               DECIMAL(12,2)  NOT NULL,
     tipo                 VARCHAR(50)    NOT NULL,
-    estado               VARCHAR(50)    NOT NULL DEFAULT 'disponible',
-    propietario_id       INTEGER        NOT NULL REFERENCES "Usuario"(id),
+    estado               VARCHAR(50)    NOT NULL DEFAULT 'en venta',
+    propietario_id       INTEGER        REFERENCES "Usuario"(id),
     ubicacion_id         INTEGER        REFERENCES "Ubicacion"(id),
     area_construccion    DECIMAL(10,2),
     area_terreno         DECIMAL(10,2),
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS "Visita" (
 -- ── HistorialEstado ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "HistorialEstado" (
     id           SERIAL PRIMARY KEY,
-    fecha_inicio TIMESTAMP    NOT NULL DEFAULT NOW(),
+    fecha_inicio TIMESTAMP    DEFAULT NOW(),
     estado       VARCHAR(50)  NOT NULL,
     fecha_fin    TIMESTAMP,
     id_inmueble  INTEGER      NOT NULL REFERENCES "Inmueble"(id)
@@ -110,6 +110,6 @@ CREATE TABLE IF NOT EXISTS "Contacto" (
     nombre      VARCHAR(100)  NOT NULL,
     correo      VARCHAR(100)  NOT NULL,
     mensaje     TEXT,
-    fecha       TIMESTAMP     NOT NULL DEFAULT NOW(),
+    fecha       TIMESTAMP     DEFAULT NOW(),
     id_inmueble INTEGER       NOT NULL REFERENCES "Inmueble"(id)
 );
