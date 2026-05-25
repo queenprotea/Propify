@@ -26,6 +26,20 @@ class UserService:
             raise Exception("Registration service unavailable - please try again later")
     
 
+    def register_user_admin(self, user_data: schemas.UserCreate) -> schemas.User:
+        try:
+            if user_repository.get_user_by_correo(self.db, user_data.correo):
+                raise ValueError("Email already registered")
+            
+            db_user = user_repository.create_user_admin(self.db, user_data)
+
+            return db_user
+        except (ValueError, ConnectionError) as e:
+            raise e
+        except Exception as e:
+            raise Exception("Registration service unavailable - please try again later")
+    
+
 
     def login_user(self, identifier: str, password: str) -> schemas.Token:
         try:
@@ -36,12 +50,15 @@ class UserService:
             if not user or not security.verify_password(password, user.password):
                 raise ValueError("Incorrect credentials")
             
-            if (user.estado.lower() != "activo"):
+            if not user.is_active:
                 raise ValueError("Incorrect credentials")
 
             access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
             access_token = security.create_access_token(
-                data={"sub": str(user.id), "rol": user.rol},
+                data={
+                    "sub": str(user.id), 
+                    "is_admin": user.is_admin
+                },
                 expires_delta=access_token_expires
             )
 
@@ -91,6 +108,12 @@ class UserService:
             raise HTTPException(status_code=404, detail="User not found")
         return us
 
+    def update_user_admin(self, user_id: int, user_update: schemas.UserUpdate):
+        us = user_repository.update_user_admin(self.db, user_id, user_update)
+        if not us:
+            raise HTTPException(status_code=404, detail="User not found")
+        return us
+
     def search_users(self, query: str):
         return user_repository.search_users(self.db, query)
     
@@ -113,13 +136,45 @@ class UserService:
     def forward_auth_header(self, token: str):
         return {"Authorization": f"Bearer {token}"}
     
+    #---------------------------------
+    #--------ESTADO VISITAS-----------
+    #---------------------------------
 
-    # visitas
+    def get_state_by_id(self, state_id: int):
+        return user_repository.get_state_by_id(self.db, state_id)
+    
+    def get_all_state(self):
+        return user_repository.get_all_states(self.db)
+
+
+    #---------------------------------
+    #------------VISITAS--------------
+    #---------------------------------
 
     def create_visit(self, visit_data: schemas.VisitaCreate):
+
+        estado = user_repository.get_state_by_id(
+            self.db,
+            visit_data.estado_id
+        )
+
+        if not estado:
+            raise ValueError("Invalid visit state")
+
         return user_repository.create_visit(self.db, visit_data)
 
     def update_visit(self, visit_id: int, visit_update: schemas.VisitaUpdate):
+
+        if visit_update.estado_id is not None:
+
+            estado = user_repository.get_state_by_id(
+                self.db,
+                visit_update.estado_id
+            )
+
+            if not estado:
+                raise ValueError("Invalid visit state")
+
         vi = user_repository.update_visit(self.db, visit_id, visit_update)
         if not vi:
             raise HTTPException(status_code=404, detail="Visit not found")
@@ -139,9 +194,14 @@ class UserService:
     def get_visit_by_id(self, id: int):
         cl = user_repository.get_visit_by_id(self.db, id)
         if not cl:
-            raise HTTPException(status_code=404, detail="Client not found")
+            raise HTTPException(status_code=404, detail="Visit not found")
         return cl
     
+    def get_visit_by_estado_id(self, estado_id: int):
+        return user_repository.get_visits_by_estado_id(self.db, estado_id)
+    
+    def get_visit_by_estado(self, estado: str):
+        return user_repository.get_visits_by_estado(self.db, estado)
    
 def get_user_service(db: Session = Depends(get_db)):
     return UserService(db)

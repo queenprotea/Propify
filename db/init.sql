@@ -11,17 +11,28 @@ CREATE TABLE IF NOT EXISTS "Usuario" (
     correo     VARCHAR(100)  NOT NULL UNIQUE,
     telefono   VARCHAR(20),
     password   VARCHAR(255)  NOT NULL,
-    rol        VARCHAR(50)   NOT NULL,
-    estado     VARCHAR(20)   NOT NULL DEFAULT 'activo'
+    is_admin   BOOLEAN   NOT NULL DEFAULT FALSE,
+    is_active  BOOLEAN   NOT NULL DEFAULT TRUE
 );
+
+-- ── EstadoRepublica ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "EstadoRepublica" (
+    id           SERIAL PRIMARY KEY,
+    valor        VARCHAR(50) UNIQUE NOT NULL
+);
+INSERT INTO "EstadoRepublica" (valor) VALUES ('Aguascalientes'), ('Baja California'), ('Baja California Sur'), ('Campeche'), ('Chiapas'),
+('Chihuahua'), ('Ciudad de Mexico'), ('Coahuila'), ('Colima'),('Durango'),('Estado de Mexico'), ('Guanajuato'), ('Guerrero'),('Hidalgo'),
+('Jalisco'),('Michoacan'),('Morelos'),('Nayarit'),('Nuevo Leon'),('Oaxaca'), ('Puebla'),('Queretaro'),('Quintana Roo'),('San Luis Potosi'),
+('Sinaloa'),('Sonora'),('Tabasco'),('Tamaulipas'),('Tlaxcala'),('Veracruz'),('Yucatan'),('Zacatecas')
+ON CONFLICT DO NOTHING;
+
 
 -- ── Ubicación ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Ubicacion" (
     id                 SERIAL PRIMARY KEY,
-    direccion_completa TEXT          NOT NULL,
     latitud            DECIMAL(10,6),
     longitud           DECIMAL(10,6),
-    estado             VARCHAR(100),
+    estado_id          INTEGER NOT NULL REFERENCES "EstadoRepublica"(id),
     ciudad             VARCHAR(100),
     colonia            VARCHAR(100),
     calle              VARCHAR(100),
@@ -30,14 +41,51 @@ CREATE TABLE IF NOT EXISTS "Ubicacion" (
     codigo_postal      VARCHAR(20)
 );
 
+CREATE VIEW "VistaUbicacionCompleta" AS
+SELECT
+    u.id,
+    CONCAT(
+        u.calle, ' ',
+        u.numero_exterior,
+        ', ',
+        u.colonia,
+        ', ',
+        u.ciudad,
+        ', ',
+        e.valor,
+        ', CP ',
+        u.codigo_postal
+    ) AS direccion_completa
+FROM "Ubicacion" u
+JOIN "EstadoRepublica" e
+ON u.estado_id = e.id;
+
+
+-- ── EstadoInmueble ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "EstadoInmueble" (
+    id           SERIAL PRIMARY KEY,
+    valor        VARCHAR(50) UNIQUE NOT NULL DEFAULT 'en venta'
+);
+INSERT INTO "EstadoInmueble" (valor) VALUES ('en venta'), ('vendido'), ('en renta'), ('rentado'), ('reservado')
+ON CONFLICT DO NOTHING;
+
+-- ── TipoInmueble ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "TipoInmueble" (
+    id           SERIAL PRIMARY KEY,
+    valor        VARCHAR(50) UNIQUE NOT NULL DEFAULT 'departamento'
+);
+INSERT INTO "TipoInmueble" (valor) VALUES ('departamento'), ('casa'), ('edificio'), ('mansion'), ('cabaña')
+ON CONFLICT DO NOTHING;
+
+
 -- ── Inmueble ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Inmueble" (
     id                   SERIAL PRIMARY KEY,
     titulo               VARCHAR(150)   NOT NULL,
     descripcion          TEXT,
     precio               DECIMAL(12,2)  NOT NULL,
-    tipo                 VARCHAR(50)    NOT NULL,
-    estado               VARCHAR(50)    NOT NULL DEFAULT 'en venta',
+    tipo_id              INTEGER        NOT NULL REFERENCES "TipoInmueble"(id),
+    estado_id            INTEGER        NOT NULL REFERENCES "EstadoInmueble"(id),
     propietario_id       INTEGER        REFERENCES "Usuario"(id),
     ubicacion_id         INTEGER        REFERENCES "Ubicacion"(id),
     area_construccion    DECIMAL(10,2),
@@ -48,6 +96,7 @@ CREATE TABLE IF NOT EXISTS "Inmueble" (
     niveles              INTEGER,
     amueblado            BOOLEAN        DEFAULT FALSE
 );
+
 
 -- ── Contrato ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Contrato" (
@@ -86,22 +135,43 @@ CREATE TABLE IF NOT EXISTS "Imagen" (
     inmueble_id  INTEGER NOT NULL REFERENCES "Inmueble"(id)
 );
 
+
+-- ── Estado Visita ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "EstadoVisita" (
+    id           SERIAL PRIMARY KEY,
+    valor        VARCHAR(50) UNIQUE NOT NULL DEFAULT 'programada'
+);
+
+INSERT INTO "EstadoVisita" (valor) VALUES ('programada'), ('cancelada'), ('completada')
+ON CONFLICT DO NOTHING;
+
+
 -- ── Visita ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "Visita" (
     id           SERIAL PRIMARY KEY,
     fecha        TIMESTAMP    NOT NULL,
-    estado       VARCHAR(50)  NOT NULL DEFAULT 'programada',
+    estado_id    INTEGER      NOT NULL REFERENCES "EstadoVisita"(id),
     usuario_id   INTEGER      NOT NULL REFERENCES "Usuario"(id),
     inmueble_id  INTEGER      NOT NULL REFERENCES "Inmueble"(id)
 );
+
 
 -- ── HistorialEstado ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS "HistorialEstado" (
     id           SERIAL PRIMARY KEY,
     fecha_inicio TIMESTAMP    DEFAULT NOW(),
-    estado       VARCHAR(50)  NOT NULL,
+    estado_id    INTEGER  NOT NULL REFERENCES "EstadoInmueble"(id),
     fecha_fin    TIMESTAMP,
-    id_inmueble  INTEGER      NOT NULL REFERENCES "Inmueble"(id)
+    inmueble_id  INTEGER      NOT NULL REFERENCES "Inmueble"(id)
+);
+
+-- ── HistorialPropietario ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "HistorialPropietario" (
+    id               SERIAL PRIMARY KEY,
+    inmueble_id      INTEGER NOT NULL REFERENCES "Inmueble"(id),
+    propietario_id   INTEGER NOT NULL REFERENCES "Usuario"(id),
+    fecha_inicio     TIMESTAMP NOT NULL DEFAULT NOW(),
+    fecha_fin        TIMESTAMP
 );
 
 -- ── Contacto ──────────────────────────────────────────────────
@@ -111,5 +181,5 @@ CREATE TABLE IF NOT EXISTS "Contacto" (
     correo      VARCHAR(100)  NOT NULL,
     mensaje     TEXT,
     fecha       TIMESTAMP     DEFAULT NOW(),
-    id_inmueble INTEGER       NOT NULL REFERENCES "Inmueble"(id)
+    inmueble_id INTEGER       NOT NULL REFERENCES "Inmueble"(id)
 );

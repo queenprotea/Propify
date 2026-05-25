@@ -6,8 +6,8 @@ class UserBase(BaseModel):
     nombre: str
     correo: str 
     telefono: str | None = None
-    rol: str
-    estado: str
+    is_active: bool
+    is_admin: bool
     
 
 class UserLogin(BaseModel):
@@ -44,8 +44,8 @@ class User(UserBase):
     correo: str
     nombre: str
     telefono: str | None = None
-    rol: str
-    estado: str
+    is_admin: bool
+    is_active: bool
 
     class Config:
         from_attributes = True  # Allows ORM mode (translates ORM object -> Pydantic model)
@@ -65,50 +65,62 @@ class UserUpdate(BaseModel):
     correo: str | None = None
     telefono: str | None = None
     password: str | None = None
-    rol: str | None = None
+    is_active: bool | None = None
+    is_admin: bool | None = None
 
 
-# Base schema
+
+# =========================
+# ESTADO VISITA
+# =========================
+
+class EstadoVisitaBase(BaseModel):
+    valor: str
+
+
+class EstadoVisita(EstadoVisitaBase):
+    id: int
+
+    model_config = {
+        "from_attributes": True
+    }
+
+# =========================
+# VISITAS
+# =========================
+
 class VisitaBase(BaseModel):
-
-    estado: str = Field(
-        min_length=3,
-        max_length=100
-    )
-
+    estado_id: int
     inmueble_id: int
 
 
-# Schema para crear visita
 class VisitaCreate(VisitaBase):
-
     usuario_id: int
     fecha: datetime
 
 
-# Schema para actualizar visita
 class VisitaUpdate(BaseModel):
-
-    estado: str | None = Field(
-        default=None,
-        min_length=3,
-        max_length=100
-    )
-
+    estado_id: int | None = None
     inmueble_id: int | None = None
     usuario_id: int | None = None
     fecha: datetime | None = None
 
 
-# Schema de respuesta
-class Visita(VisitaBase):
-
+class Visita(BaseModel):
     id: int
 
     fecha: datetime
 
+    estado_id: int
+
+    inmueble_id: int
+
     usuario_id: int
+
+    # Relación opcional
+    estado: EstadoVisita | None = None
 
     model_config = {
         "from_attributes": True
     }
+
