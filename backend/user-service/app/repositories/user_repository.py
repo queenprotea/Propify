@@ -34,8 +34,36 @@ def create_user(db: Session, usuario: schemas.UserCreate):
             password=get_password_hash(usuario.password),
             nombre=usuario.nombre,
             telefono=usuario.telefono,
-            rol=usuario.rol,
-            estado="activo"
+            is_active=True,
+            is_admin=False
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return new_user
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("User with this email or username already registered")
+    except OperationalError as e:
+        db.rollback()
+        raise ConnectionError("Database connection error - please try again later")
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise Exception("Database error - please try again later")
+    except Exception as e:
+        db.rollback()
+        raise e
+
+
+def create_user_admin(db: Session, usuario: schemas.UserCreate):
+    try:
+        new_user = models.Usuario(
+            correo=usuario.correo,
+            password=get_password_hash(usuario.password),
+            nombre=usuario.nombre,
+            telefono=usuario.telefono,
+            is_active=True,
+            is_admin=True
         )
         db.add(new_user)
         db.commit()
@@ -90,7 +118,7 @@ def get_all_users(db: Session, limit : int = 100, offset: int = 0):
 def get_active_users(db: Session, limit, offset):
     try:
         safe_limit = min (limit, 1000)
-        return db.query(models.Usuario).filter(models.Usuario.estado == "activo").offset(offset).limit(safe_limit).all()
+        return db.query(models.Usuario).filter(models.Usuario.is_active == True).offset(offset).limit(safe_limit).all()
     except OperationalError as e:
         raise ConnectionError("Database connection error, please try again later")
     except Exception as e:
@@ -116,14 +144,49 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
         if user_update.telefono is not None:
             db_user.telefono = user_update.telefono
 
-        if user_update.rol is not None:
-            db_user.rol = user_update.rol
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except IntegrityError as e:
+        db.rollback()
+        raise ValueError("Email already used, please try another")
+    except OperationalError as e:
+        raise ConnectionError("Database connection error, please try again later")
+    except Exception as e:
+        raise e
+    
+
+def update_user_admin(db: Session, user_id: int, user_update: schemas.UserUpdate):
+    try:
+        db_user = get_user_by_id(db, user_id)
+        if not db_user:
+            return None
+
+        # Solo actualiza los campos que fueron enviados
+        if user_update.nombre is not None:
+            db_user.nombre = user_update.nombre
+
+        if user_update.correo is not None:
+            db_user.correo = user_update.correo
+
+        if user_update.password is not None:
+            db_user.password = get_password_hash(user_update.password)
+        
+        if user_update.telefono is not None:
+            db_user.telefono = user_update.telefono
+
+        if user_update.is_active is not None:
+            db_user.is_active = user_update.is_active
+
+        if user_update.is_admin is not None:
+            db_user.is_admin = user_update.is_admin
 
         db.commit()
         db.refresh(db_user)
         return db_user
     except IntegrityError as e:
-        raise ConnectionError("email already used, please try another")
+        db.rollback()
+        raise ValueError("Email already used, please try another")
     except OperationalError as e:
         raise ConnectionError("Database connection error, please try again later")
     except Exception as e:
@@ -151,33 +214,69 @@ def search_users(db: Session, query: str):
 
 
 def deactivate_user(db: Session, user_id: int):
-    user = db.query(models.Usuario)\
-        .filter(models.Usuario.id == user_id)\
-        .first()
+    try:
+        user = db.query(models.Usuario)\
+            .filter(models.Usuario.id == user_id)\
+            .first()
 
-    if not user:
-        return None
+        if not user:
+            return None
 
-    user.estado = "inactivo"
-    db.commit()
-    db.refresh(user)
+        user.is_active = False
+        db.commit()
+        db.refresh(user)
 
-    return user
+        return user
 
+    except OperationalError:
+        db.rollback()
+        raise ConnectionError(
+            "Database connection error, please try again later"
+        )
+
+    except SQLAlchemyError:
+        db.rollback()
+        raise Exception(
+            "Database error, please try again later"
+        )
 
 def activate_user(db: Session, user_id: int):
-    user = db.query(models.Usuario)\
-        .filter(models.Usuario.id == user_id)\
-        .first()
+    try:
+        user = db.query(models.Usuario)\
+            .filter(models.Usuario.id == user_id)\
+            .first()
 
-    if not user:
-        return None
+        if not user:
+            return None
 
-    user.estado = "activo"
-    db.commit()
-    db.refresh(user)
+        user.is_active = True
+        db.commit()
+        db.refresh(user)
 
-    return user
+        return user
+    
+    except OperationalError:
+        db.rollback()
+        raise ConnectionError(
+            "Database connection error, please try again later"
+        )
+
+    except SQLAlchemyError:
+        db.rollback()
+        raise Exception(
+            "Database error, please try again later"
+        )
+
+
+#---------------------------------
+#--------ESTADO VISITAS-----------
+#---------------------------------
+
+def get_state_by_id(db:Session, state_id:int):
+    return db.query(models.EstadoVisita).filter(models.EstadoVisita.id == state_id).first()
+
+def get_all_states(db:Session):
+    return db.query(models.EstadoVisita).all()
 
 #---------------------------------
 #----------VISITAS---------------- 
@@ -198,7 +297,7 @@ def get_visits_by_property(db: Session, property_id: int):
 def create_visit(db: Session, visit: schemas.VisitaCreate):
     db_visit = models.Visita(
         fecha=visit.fecha,
-        estado = "registrada",
+        estado_id = visit.estado_id,
         usuario_id = visit.usuario_id,
         inmueble_id=visit.inmueble_id,   
     )
@@ -217,8 +316,8 @@ def update_visit(db: Session, visit_id: int, visit_update: schemas.VisitaUpdate)
     if visit_update.inmueble_id is not None:
         db_visit.inmueble_id = visit_update.inmueble_id
 
-    if visit_update.estado is not None:
-        db_visit.estado = visit_update.estado
+    if visit_update.estado_id is not None:
+        db_visit.estado_id = visit_update.estado_id
 
     if visit_update.fecha is not None:
         db_visit.fecha = visit_update.fecha
@@ -235,12 +334,24 @@ def get_all_visits(db: Session):
     return db.query(models.Visita).all()
 
 
-def get_registered_visits(db: Session):
-    return db.query(models.Visita).filter(models.Visita.estado == "registrada").all()
+def get_visits_by_estado_id(
+    db: Session,
+    estado_id: int
+):
+    return (
+        db.query(models.Visita)
+        .join(models.EstadoVisita)
+        .filter(models.EstadoVisita.id == estado_id)
+        .all()
+    )
 
-def get_cancelled_visits(db: Session):
-    return db.query(models.Visita).filter(models.Visita.estado == "cancelada").all()
-
-
-
-
+def get_visits_by_estado(
+    db: Session,
+    estado: str
+):
+    return (
+        db.query(models.Visita)
+        .join(models.EstadoVisita)
+        .filter(models.EstadoVisita.valor == estado)
+        .all()
+    )
