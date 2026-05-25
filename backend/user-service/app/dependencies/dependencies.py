@@ -24,7 +24,7 @@ async def get_current_user(
         if user_id is None:
             raise credentials_exception
         user = user_repository.get_user_by_id(db, int(user_id))
-        if user is None or (user.estado.lower() == "inactivo"):
+        if user is None or (user.is_active == True):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
