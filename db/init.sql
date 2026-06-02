@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS "EstadoInmueble" (
     id           SERIAL PRIMARY KEY,
     valor        VARCHAR(50) UNIQUE NOT NULL DEFAULT 'en venta'
 );
-INSERT INTO "EstadoInmueble" (valor) VALUES ('en venta'), ('vendido'), ('en renta'), ('rentado'), ('reservado')
+INSERT INTO "EstadoInmueble" (valor) VALUES ('en venta'), ('vendido'), ('en renta'), ('rentado'), ('reservado'), ('no disponible')
 ON CONFLICT DO NOTHING;
 
 -- ── TipoInmueble ──────────────────────────────────────────────────
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS "TipoInmueble" (
     id           SERIAL PRIMARY KEY,
     valor        VARCHAR(50) UNIQUE NOT NULL DEFAULT 'departamento'
 );
-INSERT INTO "TipoInmueble" (valor) VALUES ('departamento'), ('casa'), ('edificio'), ('mansion'), ('cabaña')
+INSERT INTO "TipoInmueble" (valor) VALUES ('departamento'), ('casa'), ('edificio'), ('mansion'), ('cabaña'), ('local comercial'), ('terreno'), ('casa en condiminio'), ('bodega comercial'), ('departamento compartido'), ('duplex'), ('huerta'), ('local de centro comercial'),('oficina'), ('quinta'), ('rancho'), ('terreno comercial'), ('terreno industrial'), ('villa')
 ON CONFLICT DO NOTHING;
 
 
@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS "Clausula" (
 CREATE TABLE IF NOT EXISTS "Imagen" (
     id           SERIAL PRIMARY KEY,
     url_archivo  TEXT    NOT NULL,
+    descripcion  TEXT   NOT NULL,
     inmueble_id  INTEGER NOT NULL REFERENCES "Inmueble"(id)
 );
 

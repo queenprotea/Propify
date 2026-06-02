@@ -6,6 +6,13 @@ from app.services.user_service import UserService, get_user_service
 
 app = FastAPI(title="Propify")
 
+def require_admin(user):
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized"
+        )
+
 # --- API Endpoints ---
 
 # user endpoints
@@ -35,23 +42,22 @@ def register_admin(
     current_user: schemas.User = Depends(get_current_user),
 ):
     try:
-        if current_user.is_admin == True:
-            return user_service.register_user_admin(user)
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized"
-            )
+        require_admin(current_user)        
+        return user_service.register_user_admin(user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service Unavailable, please try again later"
         )
+
+
 
 @app.post("/login", response_model=schemas.Token)
 def login(
@@ -90,11 +96,19 @@ def list_all_users(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
+        require_admin(current_user)        
         return user_service.get_all_users(limit=limit, offset=offset)
-    except ConnectionError as e:
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e)
+            detail="Service Unavailable, please try again later"
         )
 
 
@@ -105,7 +119,21 @@ def get_active_users(
     user_service: UserService = Depends(get_user_service),
     current_user = Depends(get_current_user)
 ):
-    return user_service.get_active_users(limit, offset)
+    try:
+        require_admin(current_user)        
+        return user_service.get_active_users(limit, offset)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 
 @app.get("/users/{user_id}", response_model=schemas.User)
@@ -115,11 +143,19 @@ def get_user_by_id(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
+        require_admin(current_user)        
         return user_service.get_user_by_id(user_id)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
         )
     
 
@@ -130,11 +166,19 @@ def get_user_by_correo(
         current_user = Depends(get_current_user)
 ):
     try:
+        require_admin(current_user)        
         return user_service.get_user_by_correo(correo)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
         )
     
 
@@ -145,11 +189,19 @@ def get_user_by_telefono(
         current_user = Depends(get_current_user)
 ):
     try:
+        require_admin(current_user)        
         return user_service.get_user_by_telefono(telefono)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
         )
     
 
@@ -161,11 +213,19 @@ def search_users(
         current_user: schemas.User = Depends(get_current_user)
 ):
     try:
+        require_admin(current_user)        
         return user_service.search_users(q)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
         )
 
 
@@ -186,6 +246,8 @@ def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except ConnectionError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -212,6 +274,8 @@ def update_user_admin(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+    except HTTPException:
+        raise
     except ConnectionError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -226,12 +290,20 @@ def deactivate_user(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
-        if current_user.is_admin == False:
-            raise HTTPException(403)
+        require_admin(current_user)        
         return user_service.deactivate_user(user_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 @app.patch("/users/{user_id}/activate", response_model=schemas.User)
 def activate_user(
@@ -240,12 +312,20 @@ def activate_user(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
-        if current_user.is_admin == False:
-            raise HTTPException(403)
+        require_admin(current_user)        
         return user_service.activate_user(user_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 #----- estado visitas ------
 @app.get("/visit-states/all", response_model=list[schemas.EstadoVisita])
@@ -271,11 +351,22 @@ def create_visit(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
+        require_admin(current_user)        
         return user_service.create_visit(visit)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
-
+    
 @app.put("/visits/{visit_id}", response_model=schemas.Visita)
 def update_visit(
     visit_id: int,
@@ -284,53 +375,155 @@ def update_visit(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
+        require_admin(current_user)        
         return user_service.update_visit(visit_id, visit_update)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 
 @app.get("/visits/all", response_model=list[schemas.Visita])
 def get_all_visits(
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user),
 ):
-    return user_service.get_all_visits()
+    try:
+        require_admin(current_user)        
+        return user_service.get_all_visits()
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 
 @app.get("/visits/id/{visit_id}", response_model=schemas.Visita)
 def get_visit_id_endpoint(
     visit_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
-    return user_service.get_visit_by_id(visit_id)
+    try:
+        require_admin(current_user)        
+        return user_service.get_visit_by_id(visit_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 
 @app.get("/visits/user/{user_id}", response_model=list[schemas.Visita])
 def get_visits_by_user(
     user_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
-    return user_service.get_visits_by_user(user_id)
+    try:
+        require_admin(current_user)        
+        return user_service.get_visits_by_user(user_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 
 @app.get("/visits/property/{pro_id}", response_model=list[schemas.Visita])
 def get_visits_by_property(
     pro_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
-    return user_service.get_visits_by_property(pro_id)
+    try:
+        require_admin(current_user)        
+        return user_service.get_visits_by_property(pro_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 
 @app.get("/visits/state/id/{state_id}", response_model=list[schemas.Visita])
 def get_visits_by_state_id(
     state_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
-    return user_service.get_visit_by_estado_id(state_id)
+    try:
+        require_admin(current_user)        
+        return user_service.get_visit_by_estado_id(state_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
 
 
 @app.get("/visits/state/{state}", response_model=list[schemas.Visita])
 def get_visits_by_state_name(
     state: str,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
-    return user_service.get_visit_by_estado(state)
+    try:
+        require_admin(current_user)        
+        return user_service.get_visit_by_estado(state)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
+

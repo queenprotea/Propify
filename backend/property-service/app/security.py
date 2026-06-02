@@ -2,6 +2,7 @@ from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
+from app.schemas import CurrentUser
 
 security = HTTPBearer()
 
@@ -22,7 +23,10 @@ def verify_jwt(token: str):
                 detail="Could not validate credentials",
             )
          
-        return user_id
+        return CurrentUser(
+            id=int(payload["sub"]),
+            is_admin=payload.get("is_admin", False)
+        )
         
     except JWTError:
         raise HTTPException(

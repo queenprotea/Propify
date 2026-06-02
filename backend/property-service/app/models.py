@@ -66,7 +66,6 @@ class Ubicacion(Base):
     __tablename__ = "Ubicacion"
 
     id = Column(Integer, primary_key=True, nullable=False)
-    direccion_completa = Column(Text)
     latitud = Column(Numeric(10,6))
     longitud = Column(Numeric(10,6))
     estado_id = Column(Integer, ForeignKey("EstadoRepublica.id"), nullable=False)
@@ -113,6 +112,7 @@ class Imagen(Base):
 
     id = Column(Integer, primary_key=True, nullable=False)
     url_archivo = Column(Text, nullable=False)
+    descripcion = Column(Text, nullable=False)
     inmueble_id = Column(Integer, ForeignKey("Inmueble.id"), nullable=False)
 
     # Relación inversa

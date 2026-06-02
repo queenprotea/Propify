@@ -13,5 +13,11 @@ class EstadoInmueble(str, Enum):
     ENRENTA = "en renta"
     VENDIDO = "vendido"
     RENTADO = "rentado"
-    APARTADO = "apartado"
+    RESERVADO = "reservado"
     NODISPONIBLE = "no disponible"
+
+class EstadoInmueblePublico(str, Enum):
+    ENVENTA = "en venta"
+    ENRENTA = "en renta"
+    RESERVADO = "reservado"
+    
