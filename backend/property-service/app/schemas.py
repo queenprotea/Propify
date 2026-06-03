@@ -8,10 +8,18 @@ class InmuebleBase(BaseModel):
     titulo: str = Field(min_length=5, max_length=150)
     descripcion: str | None = None
     precio: float
-    tipo: TipoInmueble
-    operacion: OperacionInmueble
-    uso: UsoInmueble
+    tipo: str                      # validado contra catálogo TipoInmueble
+    operacion: OperacionInmueble   # enum (flujo de negocio)
+    uso: str                       # validado contra catálogo UsoInmueble
     estado: EstadoInmueble = EstadoInmueble.DISPONIBLE
+
+    @field_validator("tipo", "uso")
+    @classmethod
+    def _cat(cls, v):
+        v = (v or "").strip().lower()
+        if not v:
+            raise ValueError("Valor de catálogo requerido")
+        return v
     propietario_id: int | None = None
     area_construccion: float | None = None
     area_terreno: float | None = None
@@ -53,9 +61,9 @@ class InmuebleUpdate(BaseModel):
     titulo: str | None = None
     descripcion: str | None = None
     precio: float | None = None
-    tipo: TipoInmueble | None = None
+    tipo: str | None = None
     operacion: OperacionInmueble | None = None
-    uso: UsoInmueble | None = None
+    uso: str | None = None
     estado: EstadoInmueble | None = None
     area_construccion: float | None = None
     area_terreno: float | None = None

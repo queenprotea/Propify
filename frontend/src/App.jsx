@@ -22,6 +22,7 @@ import RequestsAdmin from './pages/admin/RequestsAdmin'
 import RentsAdmin from './pages/admin/RentsAdmin'
 import SalesAdmin from './pages/admin/SalesAdmin'
 import AuditAdmin from './pages/admin/AuditAdmin'
+import CatalogsAdmin from './pages/admin/CatalogsAdmin'
 import PaymentsAdmin from './pages/admin/PaymentsAdmin'
 import VisitsAdmin from './pages/admin/VisitsAdmin'
 import ContactsAdmin from './pages/admin/ContactsAdmin'
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/admin/rentas" element={<ProtectedRoute requireAdmin><RentsAdmin /></ProtectedRoute>} />
         <Route path="/admin/ventas" element={<ProtectedRoute requireAdmin><SalesAdmin /></ProtectedRoute>} />
         <Route path="/admin/auditoria" element={<ProtectedRoute requireAdmin><AuditAdmin /></ProtectedRoute>} />
+        <Route path="/admin/catalogos" element={<ProtectedRoute requireAdmin><CatalogsAdmin /></ProtectedRoute>} />
         <Route path="/admin/pagos" element={<ProtectedRoute requireAdmin><PaymentsAdmin /></ProtectedRoute>} />
         <Route path="/admin/visitas" element={<ProtectedRoute requireAdmin><VisitsAdmin /></ProtectedRoute>} />
         <Route path="/admin/contactos" element={<ProtectedRoute requireAdmin><ContactsAdmin /></ProtectedRoute>} />

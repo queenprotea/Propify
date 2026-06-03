@@ -1,7 +1,7 @@
 // Catálogos de la taxonomía del inmueble (coinciden con los enums del backend).
 export const TIPOS = ['casa', 'departamento', 'terreno', 'local', 'edificio', 'oficina']
 export const OPERACIONES = ['venta', 'renta']
-export const USOS = ['residencial', 'comercial']
+export const USOS = ['residencial', 'comercial', 'industrial', 'mixto', 'terreno']
 export const ESTADOS = ['disponible', 'reservado', 'vendido', 'rentado']
 
 export const ESTADOS_REPUBLICA = [

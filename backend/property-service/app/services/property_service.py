@@ -11,11 +11,18 @@ class PropertyService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _validar_catalogos(self, tipo=None, uso=None):
+        if tipo is not None and tipo not in property_repository.catalog_values(self.db, "tipos"):
+            raise ValueError(f"Tipo de inmueble inválido: '{tipo}'")
+        if uso is not None and uso not in property_repository.catalog_values(self.db, "usos"):
+            raise ValueError(f"Uso de inmueble inválido: '{uso}'")
+
     def create_inmueble(self, inmueble_data: schemas.InmuebleCreate):
         if not inmueble_data.titulo.strip():
             raise ValueError("Property title required")
         if inmueble_data.precio <= 0:
             raise ValueError("Price must be greater than 0")
+        self._validar_catalogos(inmueble_data.tipo, inmueble_data.uso)
         if (
             inmueble_data.area_terreno is not None
             and inmueble_data.area_terreno <= 0
@@ -33,6 +40,7 @@ class PropertyService:
             raise ValueError(
                 "Price must be greater than 0"
             )
+        self._validar_catalogos(inmueble_update.tipo, inmueble_update.uso)
 
         if (
             inmueble_update.area_terreno is not None

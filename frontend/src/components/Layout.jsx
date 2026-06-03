@@ -31,6 +31,7 @@ export default function Layout({ children }) {
                   <li><NavLink to="/admin/ventas">Ventas</NavLink></li>
                   <li><NavLink to="/admin/pagos">Pagos</NavLink></li>
                   <li><NavLink to="/admin/auditoria">Auditoría</NavLink></li>
+                  <li><NavLink to="/admin/catalogos">Catálogos</NavLink></li>
                   <li><NavLink to="/admin/visitas">Visitas</NavLink></li>
                   <li><NavLink to="/admin/contactos">Contactos</NavLink></li>
                 </>

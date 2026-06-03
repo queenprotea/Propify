@@ -41,6 +41,28 @@ class EstadoRepublica(Base):
     valor = Column(String(50), nullable=False, unique=True)
 
 
+# ── Catálogos normalizados del inmueble (id, valor) ──
+class TipoInmuebleCat(Base):
+    __tablename__ = "TipoInmueble"
+    id = Column(Integer, primary_key=True)
+    valor = Column(String(50), nullable=False, unique=True)
+
+class OperacionInmuebleCat(Base):
+    __tablename__ = "OperacionInmueble"
+    id = Column(Integer, primary_key=True)
+    valor = Column(String(20), nullable=False, unique=True)
+
+class UsoInmuebleCat(Base):
+    __tablename__ = "UsoInmueble"
+    id = Column(Integer, primary_key=True)
+    valor = Column(String(30), nullable=False, unique=True)
+
+class EstadoInmuebleCat(Base):
+    __tablename__ = "EstadoInmueble"
+    id = Column(Integer, primary_key=True)
+    valor = Column(String(20), nullable=False, unique=True)
+
+
 class Ubicacion(Base):
     __tablename__ = "Ubicacion"
 

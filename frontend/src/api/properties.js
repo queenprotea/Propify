@@ -26,6 +26,10 @@ export const propertiesApi = {
   remove: (id) => client.delete(`${base}/inmuebles/${id}`).then((r) => r.data),
 
   categorias: () => client.get(`${base}/categorias`).then((r) => r.data),
+  addCategoria: (catalogo, valor) =>
+    client.post(`${base}/categorias/${catalogo}`, { valor }).then((r) => r.data),
+  deleteCategoria: (catalogo, valor) =>
+    client.delete(`${base}/categorias/${catalogo}/${encodeURIComponent(valor)}`).then((r) => r.data),
 }
 
 export const locationsApi = {

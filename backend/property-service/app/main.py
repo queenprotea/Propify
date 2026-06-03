@@ -25,16 +25,38 @@ async def error_handler(request: Request, exc: Exception):
     )
 
 
-# --- Catálogos / categorías ---
+# --- Catálogos / categorías (normalizados en BD) ---
 @app.get("/categorias")
-def get_categorias():
-    """Catálogo de categorías para poblar selectores y validar en el frontend."""
-    return {
-        "tipos": [e.value for e in TipoInmueble],
-        "operaciones": [e.value for e in OperacionInmueble],
-        "usos": [e.value for e in UsoInmueble],
-        "estados": [e.value for e in EstadoInmueble],
-    }
+def get_categorias(inmueble_service: PropertyService = Depends(get_property_service)):
+    """Catálogos para poblar selectores y filtros (fuente: tablas de catálogo)."""
+    return property_repository.get_catalogos(inmueble_service.db)
+
+
+@app.post("/categorias/{catalogo}", summary="Agregar un valor de catálogo (administrador)")
+def add_categoria(catalogo: str, body: dict,
+                  current_user=Depends(get_current_admin),
+                  inmueble_service: PropertyService = Depends(get_property_service)):
+    if catalogo not in property_repository.CATALOG_MODELS:
+        raise HTTPException(status_code=404, detail="Catálogo no encontrado")
+    try:
+        row = property_repository.add_catalog(inmueble_service.db, catalogo, str(body.get("valor", "")))
+        return {"id": row.id, "valor": row.valor}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@app.delete("/categorias/{catalogo}/{valor}", summary="Eliminar un valor de catálogo (administrador)")
+def delete_categoria(catalogo: str, valor: str,
+                     current_user=Depends(get_current_admin),
+                     inmueble_service: PropertyService = Depends(get_property_service)):
+    if catalogo not in property_repository.CATALOG_MODELS:
+        raise HTTPException(status_code=404, detail="Catálogo no encontrado")
+    try:
+        if not property_repository.delete_catalog(inmueble_service.db, catalogo, valor):
+            raise HTTPException(status_code=404, detail="Valor no encontrado")
+        return {"message": "Valor eliminado"}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 STATIC_PROPERTY_DIR = Path("/app/static/propertyImages")
 STATIC_PROPERTY_DIR.mkdir(parents=True, exist_ok=True)
@@ -102,7 +124,7 @@ def get_inmuebles_disponibles(
 
 @app.get("/inmuebles/tipo/{tipo}", response_model=list[schemas.Inmueble])
 def get_inmuebles_by_tipo(
-    tipo: TipoInmueble,
+    tipo: str,
     inmueble_service: PropertyService = Depends(get_property_service)
 ):
     return inmueble_service.get_inmuebles_by_tipo(tipo)

@@ -56,25 +56,49 @@ CREATE TABLE IF NOT EXISTS "Ubicacion" (
 );
 
 
+-- ── Catálogos normalizados de inmueble ────────────────────────
+-- Tablas catálogo (id, valor UNIQUE) para administración, escalabilidad,
+-- consistencia y reportes/filtros. La integridad de Inmueble se garantiza
+-- por FK al 'valor' del catálogo (reemplaza a los antiguos CHECK).
+CREATE TABLE IF NOT EXISTS "TipoInmueble" (
+    id SERIAL PRIMARY KEY, valor VARCHAR(50) UNIQUE NOT NULL
+);
+INSERT INTO "TipoInmueble" (valor) VALUES
+    ('casa'),('departamento'),('terreno'),('local'),('edificio'),('oficina')
+ON CONFLICT (valor) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS "OperacionInmueble" (
+    id SERIAL PRIMARY KEY, valor VARCHAR(20) UNIQUE NOT NULL
+);
+INSERT INTO "OperacionInmueble" (valor) VALUES ('venta'),('renta')
+ON CONFLICT (valor) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS "UsoInmueble" (
+    id SERIAL PRIMARY KEY, valor VARCHAR(30) UNIQUE NOT NULL
+);
+INSERT INTO "UsoInmueble" (valor) VALUES
+    ('residencial'),('comercial'),('industrial'),('mixto'),('terreno')
+ON CONFLICT (valor) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS "EstadoInmueble" (
+    id SERIAL PRIMARY KEY, valor VARCHAR(20) UNIQUE NOT NULL
+);
+INSERT INTO "EstadoInmueble" (valor) VALUES
+    ('disponible'),('reservado'),('vendido'),('rentado')
+ON CONFLICT (valor) DO NOTHING;
+
+
 -- ── Inmueble ──────────────────────────────────────────────────
--- Taxonomía (CHECK = validación a nivel BD, defensa en profundidad):
---   tipo:      casa | departamento | terreno | local | edificio | oficina
---   operacion: venta | renta            (parte de la categorización)
---   uso:       residencial | comercial  (parte de la categorización)
---   estado:    disponible | reservado | vendido | rentado
+-- tipo/operacion/uso/estado referencian (FK) el 'valor' de su catálogo.
 CREATE TABLE IF NOT EXISTS "Inmueble" (
     id                   SERIAL PRIMARY KEY,
     titulo               VARCHAR(150)   NOT NULL,
     descripcion          TEXT,
     precio               DECIMAL(12,2)  NOT NULL,
-    tipo                 VARCHAR(50)    NOT NULL
-                         CHECK (tipo IN ('casa','departamento','terreno','local','edificio','oficina')),
-    operacion            VARCHAR(20)    NOT NULL
-                         CHECK (operacion IN ('venta','renta')),
-    uso                  VARCHAR(20)    NOT NULL
-                         CHECK (uso IN ('residencial','comercial')),
-    estado               VARCHAR(20)    NOT NULL DEFAULT 'disponible'
-                         CHECK (estado IN ('disponible','reservado','vendido','rentado')),
+    tipo                 VARCHAR(50)    NOT NULL REFERENCES "TipoInmueble"(valor),
+    operacion            VARCHAR(20)    NOT NULL REFERENCES "OperacionInmueble"(valor),
+    uso                  VARCHAR(30)    NOT NULL REFERENCES "UsoInmueble"(valor),
+    estado               VARCHAR(20)    NOT NULL DEFAULT 'disponible' REFERENCES "EstadoInmueble"(valor),
     propietario_id       INTEGER        REFERENCES "Usuario"(id),
     ubicacion_id         INTEGER        NOT NULL REFERENCES "Ubicacion"(id),
     area_construccion    DECIMAL(12,2),

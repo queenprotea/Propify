@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { propertiesApi, locationsApi, imagesApi } from '../../api/properties'
-import { TIPOS, OPERACIONES, USOS, ESTADOS, ESTADOS_REPUBLICA, capitalizar } from '../../utils/constants'
+import { ESTADOS_REPUBLICA, capitalizar } from '../../utils/constants'
+import { useCategorias } from '../../hooks/useCategorias'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 import Spinner from '../../components/Spinner'
@@ -21,6 +22,7 @@ export default function PropertyForm() {
   const { id } = useParams()
   const editando = Boolean(id)
   const navigate = useNavigate()
+  const cat = useCategorias()
 
   const [inm, setInm] = useState(inmuebleInit)
   const [ubi, setUbi] = useState(ubicacionInit)
@@ -162,10 +164,10 @@ export default function PropertyForm() {
           <Field label="Descripción" as="textarea" value={inm.descripcion} onChange={setI('descripcion')} />
           <div className="grid form-2">
             <Field label="Precio (MXN)" type="number" min="0" value={inm.precio} onChange={setI('precio')} required />
-            <Field label="Tipo" as="select" options={TIPOS.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.tipo} onChange={setI('tipo')} required />
-            <Field label="Operación" as="select" options={OPERACIONES.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.operacion} onChange={setI('operacion')} required />
-            <Field label="Uso" as="select" options={USOS.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.uso} onChange={setI('uso')} required />
-            <Field label="Estado" as="select" options={ESTADOS.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.estado} onChange={setI('estado')} required />
+            <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.tipo} onChange={setI('tipo')} required />
+            <Field label="Operación" as="select" options={cat.operaciones.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.operacion} onChange={setI('operacion')} required />
+            <Field label="Uso" as="select" options={cat.usos.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.uso} onChange={setI('uso')} required />
+            <Field label="Estado" as="select" options={cat.estados.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.estado} onChange={setI('estado')} required />
             <Field label="Recámaras" type="number" min="0" value={inm.num_recamaras} onChange={setI('num_recamaras')} />
             <Field label="Baños" type="number" min="0" value={inm.num_banos} onChange={setI('num_banos')} />
             <Field label="Estacionamientos" type="number" min="0" value={inm.num_estacionamientos} onChange={setI('num_estacionamientos')} />

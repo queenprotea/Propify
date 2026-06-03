@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { propertiesApi, locationsApi, imagesApi } from '../../api/properties'
-import { TIPOS, USOS, capitalizar } from '../../utils/constants'
+import { capitalizar } from '../../utils/constants'
+import { useCategorias } from '../../hooks/useCategorias'
 import Field from '../../components/Field'
 import Spinner from '../../components/Spinner'
 import Alert from '../../components/Alert'
@@ -14,6 +15,7 @@ const filtrosInit = {
 }
 
 export default function Home() {
+  const cat = useCategorias()
   const [inmuebles, setInmuebles] = useState([])
   const [ubicaciones, setUbicaciones] = useState({})
   const [imagenes, setImagenes] = useState({})
@@ -98,8 +100,8 @@ export default function Home() {
 
           <form className="hero-search" aria-label="Búsqueda rápida" onSubmit={(e) => e.preventDefault()}>
             <Field label="¿Dónde? Ciudad, zona o título" value={filtros.texto} onChange={set('texto')} placeholder="Ej. Cancún, Polanco…" />
-            <Field label="Tipo" as="select" options={TIPOS.map((t) => ({ value: t, label: capitalizar(t) }))} value={filtros.tipo} onChange={set('tipo')} />
-            <Field label="Uso" as="select" options={USOS.map((t) => ({ value: t, label: capitalizar(t) }))} value={filtros.uso} onChange={set('uso')} />
+            <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t, label: capitalizar(t) }))} value={filtros.tipo} onChange={set('tipo')} />
+            <Field label="Uso" as="select" options={cat.usos.map((t) => ({ value: t, label: capitalizar(t) }))} value={filtros.uso} onChange={set('uso')} />
             <a className="btn" href="#resultados">Buscar</a>
           </form>
         </div>

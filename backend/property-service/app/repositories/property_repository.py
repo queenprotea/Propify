@@ -5,6 +5,52 @@ from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from datetime import datetime, timezone
 
 
+CATALOG_MODELS = {
+    "tipos": models.TipoInmuebleCat,
+    "operaciones": models.OperacionInmuebleCat,
+    "usos": models.UsoInmuebleCat,
+    "estados": models.EstadoInmuebleCat,
+}
+
+
+def get_catalogos(db: Session):
+    return {k: [r.valor for r in db.query(m).order_by(m.id).all()] for k, m in CATALOG_MODELS.items()}
+
+
+def catalog_values(db: Session, key: str):
+    m = CATALOG_MODELS[key]
+    return [r.valor for r in db.query(m).all()]
+
+
+def add_catalog(db: Session, key: str, valor: str):
+    m = CATALOG_MODELS[key]
+    valor = valor.strip().lower()
+    if not valor:
+        raise ValueError("El valor no puede estar vacío")
+    if db.query(m).filter(m.valor == valor).first():
+        raise ValueError("El valor ya existe en el catálogo")
+    row = m(valor=valor)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_catalog(db: Session, key: str, valor: str):
+    m = CATALOG_MODELS[key]
+    row = db.query(m).filter(m.valor == valor).first()
+    if not row:
+        return False
+    # No permitir borrar un valor en uso por algún inmueble (FK).
+    col = getattr(models.Inmueble, {"tipos": "tipo", "operaciones": "operacion",
+                                    "usos": "uso", "estados": "estado"}[key])
+    if db.query(models.Inmueble).filter(col == valor).first():
+        raise ValueError("No se puede eliminar: hay inmuebles que usan este valor")
+    db.delete(row)
+    db.commit()
+    return True
+
+
 def _build_direccion_completa(calle, numero_exterior, colonia, ciudad, estado, codigo_postal) -> str:
     """Genera la dirección legible a partir de las partes (WCAG: alternativa textual al mapa)."""
     return (
@@ -23,9 +69,9 @@ def create_inmueble(db: Session, inmueble: schemas.InmuebleCreate):
             titulo=inmueble.titulo,
             descripcion = inmueble.descripcion,
             precio = inmueble.precio,
-            tipo=inmueble.tipo.value,
+            tipo=inmueble.tipo,
             operacion=inmueble.operacion.value,
-            uso=inmueble.uso.value,
+            uso=inmueble.uso,
             estado=inmueble.estado.value,
             area_construccion= inmueble.area_construccion,
             area_terreno= inmueble.area_terreno,
@@ -70,13 +116,13 @@ def update_inmueble(db: Session, inmueble_id: int, inmueble_update: schemas.Inmu
             db_inmueble.precio = inmueble_update.precio
 
         if inmueble_update.tipo is not None:
-            db_inmueble.tipo = inmueble_update.tipo.value
+            db_inmueble.tipo = inmueble_update.tipo
 
         if inmueble_update.operacion is not None:
             db_inmueble.operacion = inmueble_update.operacion.value
 
         if inmueble_update.uso is not None:
-            db_inmueble.uso = inmueble_update.uso.value
+            db_inmueble.uso = inmueble_update.uso
 
         if inmueble_update.estado is not None:
             db_inmueble.estado = inmueble_update.estado.value
@@ -184,12 +230,13 @@ def get_disponible_inmuebles(db: Session):
 
 def get_inmuebles_by_tipo(
     db: Session,
-    tipo: TipoInmueble
+    tipo
 ):
+    valor = tipo.value if hasattr(tipo, "value") else tipo
     return (
         db.query(models.Inmueble)
         .filter(
-            models.Inmueble.tipo == tipo.value
+            models.Inmueble.tipo == valor
         )
         .all()
     )

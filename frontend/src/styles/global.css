@@ -156,7 +156,22 @@ table.data thead th { background: #f0eefb; }
 .layout-2col { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; align-items: start; }
 @media (max-width: 900px) { .layout-2col { grid-template-columns: 1fr; } }
 
-.leaflet-container { height: 420px; width: 100%; border-radius: var(--radius); }
+/* El mapa se mantiene contenido en su sección: 'isolation' crea un contexto de
+   apilamiento propio, de modo que los z-index internos de Leaflet (controles,
+   popups, panes — hasta ~1000) nunca cubren el header, menús ni los modales. */
+.leaflet-container {
+  height: 420px;
+  width: 100%;
+  border-radius: var(--radius);
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+/* Refuerzo: acota los controles/panes de Leaflet por debajo del header (100) y modal (1000). */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom { z-index: 5 !important; }
+.leaflet-control { z-index: 6 !important; }
 
 .muted { color: var(--color-muted); }
 .stack > * + * { margin-top: 1rem; }
