@@ -1,4 +1,4 @@
-version: "3.9"
+name: propify
 
 services:
 
@@ -6,6 +6,8 @@ services:
     image: postgres:16-alpine
     container_name: inmobiliaria_db
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       POSTGRES_USER:     ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -22,42 +24,142 @@ services:
     networks:
       - backend_net
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5432:5432"   # Solo loopback: no expuesto a la LAN
 
-  contract-service:
-    build:
-      context: contract-service
-    container_name: contract_service
+  user_service:
+    build: ./user-service
+    container_name: propify_user_service
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+    expose:
+      - "8001"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8001:8001"
+    command: >
+      sh -c "
+        until pg_isready -h db -U ${DB_USER}; do
+          echo 'Esperando a PostgreSQL...'; sleep 2;
+        done;
+        echo 'Base de datos lista';
+        uvicorn app.main:app --host 0.0.0.0 --port 8001"
     depends_on:
       db:
         condition: service_healthy
     networks:
       - backend_net
 
-  payment-service:
-    build:
-      context: payment-service
-    container_name: payment_service
+  property_service:
+    build: ./property-service
+    container_name: propify_property_service
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      DATABASE_URL:       postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
-      STRIPE_SECRET_KEY:  ${STRIPE_SECRET_KEY}
-      WEBHOOK_SECRET:     ${WEBHOOK_SECRET}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+    expose:
+      - "8002"
     ports:
-      - "8003:8003"
+      - "127.0.0.1:8002:8002"
+    command: >
+      sh -c "
+        until pg_isready -h db -U ${DB_USER}; do
+          echo 'Esperando a PostgreSQL...'; sleep 2;
+        done;
+        echo 'Base de datos lista';
+        uvicorn app.main:app --host 0.0.0.0 --port 8002"
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - backend_net
+    volumes:
+      - property_images:/app/static
+
+  contract_service:
+    build: ./contract-service
+    container_name: propify_contract_service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+    expose:
+      - "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_net
+    volumes:
+      - contract_files:/app/contracts
+
+  payment_service:
+    build: ./payment-service
+    container_name: propify_payment_service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL:      postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      WEBHOOK_SECRET:    ${WEBHOOK_SECRET}
+    expose:
+      - "8003"
+    ports:
+      - "127.0.0.1:8003:8003"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend_net
+
+  gateway:
+    build: ./gateway
+    container_name: propify_gateway
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - user_service
+      - property_service
+      - contract_service
+      - payment_service
+    networks:
+      - backend_net
+
+  frontend:
+    build: ../frontend
+    container_name: propify_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
     networks:
       - backend_net
 
 volumes:
   postgres_data:
+    driver: local
+  property_images:
+    driver: local
+  contract_files:
     driver: local
 
 networks:

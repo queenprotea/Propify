@@ -1,0 +1,18 @@
+# SO / editores
+.DS_Store
+.idea/
+*.iml
+
+# Artefactos
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secretos (defensa en profundidad; ver también backend/.gitignore)
+.env
+*.env
+!*.env.example
