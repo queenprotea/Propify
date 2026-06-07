@@ -7,7 +7,6 @@ class UserBase(BaseModel):
     correo: str 
     telefono: str | None = None
     is_active: bool
-    is_admin: bool
     
 
 class UserLogin(BaseModel):
@@ -15,6 +14,7 @@ class UserLogin(BaseModel):
     password: str = Field(min_length=8, max_length=30)
 
 # Schema for creating a user (registration). Includes password.
+
 class UserCreate(UserBase):
     password: str 
     

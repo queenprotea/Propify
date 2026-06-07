@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS "EstadoVisita" (
     valor        VARCHAR(50) UNIQUE NOT NULL DEFAULT 'programada'
 );
 
-INSERT INTO "EstadoVisita" (valor) VALUES ('programada'), ('cancelada'), ('completada')
+INSERT INTO "EstadoVisita" (valor) VALUES ('programada'), ('cancelada'), ('confirmada'), ('completada')
 ON CONFLICT DO NOTHING;
 
 

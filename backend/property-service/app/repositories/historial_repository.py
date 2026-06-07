@@ -75,7 +75,7 @@ def create_historial_estado(
 
         # Crear nuevo historial
         db_historial_estado = models.HistorialEstado(
-            id_inmueble=historialEstado.inmueble_id,
+            inmueble_id=historialEstado.inmueble_id,
             estado_id=historialEstado.estado_id,
             fecha_inicio=now
         )
@@ -174,7 +174,7 @@ def get_historial_propietario_by_id(db: Session, historialPropietario_id: int):
         db.query(models.HistorialPropietario)
         .filter(models.HistorialPropietario.id == historialPropietario_id)
         .options(
-            joinedload(models.HistorialEstado.inmueble),
+            joinedload(models.HistorialPropietario.inmueble),
         )
         .first()
     )
@@ -184,7 +184,7 @@ def get_historial_propietario_by_inmueble(db: Session, inmueble_id: int):
         db.query(models.HistorialPropietario)
         .filter(models.HistorialPropietario.inmueble_id == inmueble_id)
         .options(
-            joinedload(models.HistorialEstado.inmueble),
+            joinedload(models.HistorialPropietario.inmueble),
         )
         .order_by(models.HistorialPropietario.fecha_inicio.desc())
         .all()
@@ -286,7 +286,7 @@ def update_historial_propietario(
             "Database connection error"
         )
 
-    except SQLAlchemyError:
+    except SQLAlchemyError as e:
         db.rollback()
         raise Exception(
             "Database error"
@@ -345,7 +345,7 @@ def get_current_propietario_by_inmueble(
             models.HistorialPropietario.fecha_fin.is_(None)
         )
         .options(
-            joinedload(models.HistorialEstado.inmueble),
+            joinedload(models.HistorialPropietario.inmueble),
         )
         .first()
     )
