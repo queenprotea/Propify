@@ -58,7 +58,7 @@ class ContactoService:
         return contacto_repository.get_all_contactos(self.db, limit, offset)
 
     def search_contactos(self, query: str):
-        return contacto_repository.search_contactos(self, query)
+        return contacto_repository.search_contactos(self.db, query)
 
 
 def get_contacto_service(

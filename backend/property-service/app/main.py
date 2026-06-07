@@ -905,7 +905,7 @@ def update_historial_propietario(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(e)
         )
-    except HTTPException:
+    except HTTPException as e:
         raise
     except Exception as e:
         raise HTTPException(
@@ -1012,7 +1012,7 @@ def close_current_propietario_by_inmueble(
 @app.post("/imagenes/{inmueble_id}", response_model=schemas.Imagen)
 async def create_imagen(
     inmueble_id: int,
-    descripcion: str,
+    descripcion: str = Form(...),
     current_user = Depends(get_current_user),
     file: UploadFile = File(...),
     image_service: ImagenService = Depends(get_imagen_service),
@@ -1238,7 +1238,7 @@ def create_contacto(
     inmueble_service: InmuebleService = Depends(get_inmueble_service)
 ):
     try:
-        inmueble_service.get_inmueble_by_id(contacto.id_inmueble)
+        inmueble_service.get_inmueble_by_id(contacto.inmueble_id)
         return contacto_service.create_contacto(contacto)
     except ValueError as e:
         raise HTTPException(
@@ -1387,6 +1387,6 @@ def search_contactos(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service Unavailable, please try again later"
+            detail=str(e)
         ) 
     

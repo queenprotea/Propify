@@ -205,8 +205,8 @@ def get_user_by_telefono(
         )
     
 
-#"/users/search?q={query}"
-@app.get("/users/search", response_model=list[schemas.User])
+#"/users/search/query?q={query}"
+@app.get("/users/search/query", response_model=list[schemas.User])
 def search_users(
         q: str,
         user_service: UserService = Depends(get_user_service),
@@ -237,7 +237,7 @@ def update_user(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
-        if current_user.id != user_id and not current_user.is_admin:
+        if current_user.id != user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized")
         return user_service.update_user(user_id, user_data)
@@ -350,8 +350,7 @@ def create_visit(
     current_user = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service)
 ):
-    try:
-        require_admin(current_user)        
+    try:       
         return user_service.create_visit(visit)
     except ValueError as e:
         raise HTTPException(
@@ -443,8 +442,8 @@ def get_visits_by_user(
     current_user = Depends(get_current_user)
 ):
     try:
-        require_admin(current_user)        
-        return user_service.get_visits_by_user(user_id)
+        if current_user.is_admin == True or current_user.id == user_id:        
+            return user_service.get_visits_by_user(user_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
