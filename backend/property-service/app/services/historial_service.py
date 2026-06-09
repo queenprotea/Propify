@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.database import get_db
-from app.repositories import historial_repository, inmueble_repository
+from app.repositories import historial_repository
 from app.enums import TipoInmueble, EstadoInmueble
 
 class HistorialService:
@@ -87,9 +87,6 @@ class HistorialService:
 
         if not his:
             raise HTTPException(status_code=404, detail="Current history not found")
-        
-        #quitarle el propietario a la clase inmueble
-        inmueble_repository.clear_propietario_inmueble(self.db, his.inmueble_id)
         
         return his
 
