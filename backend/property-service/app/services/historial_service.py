@@ -21,19 +21,6 @@ class HistorialService:
             historial_data
         )
 
-        # 2. Actualizar estado actual del inmueble
-        inmueble = inmueble_repository.update_inmueble_status(
-            self.db,
-            historial_data.inmueble_id,
-            historial_data.estado_id
-        )
-
-        if not inmueble:
-            raise HTTPException(
-                status_code=404,
-                detail="Property not found"
-            )
-
         return historial
 
     def update_historial_estado(self, historial_id: int, historial_update: schemas.HistorialUpdate):
@@ -84,19 +71,6 @@ class HistorialService:
             historial_data
         )
 
-        # 2. Actualizar propietario actual del inmueble
-        inmueble = inmueble_repository.update_inmueble_propietario(
-            self.db,
-            historial_data.inmueble_id,
-            historial_data.propietario_id
-        )
-
-        if not inmueble:
-            raise HTTPException(
-                status_code=404,
-                detail="Property not found"
-            )
-
         return historial
 
     def update_historial_propietario(self, historial_id: int, historial_update: schemas.HistorialPropietarioUpdate):
@@ -107,9 +81,9 @@ class HistorialService:
         
         return his
     
-    def close_current_propietario(self, historial_id: int):
+    def close_current_propietario(self, inmueble_id: int):
 
-        his = historial_repository.close_current_propietario(self.db, historial_id)
+        his = historial_repository.close_current_propietario(self.db, inmueble_id)
 
         if not his:
             raise HTTPException(status_code=404, detail="Current history not found")
