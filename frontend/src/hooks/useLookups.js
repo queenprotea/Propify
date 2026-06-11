@@ -6,8 +6,7 @@ import { propertiesApi } from '../api/properties'
 const userCache = new Map()
 const propCache = new Map()
 
-// Resuelve ids de usuario e inmueble a información legible (sin mostrar IDs crudos).
-// Uso: const { users, props, userLabel, propLabel } = useLookups(userIds, propIds)
+// Resuelve ids de usuario e inmueble a información legible
 export function useLookups(userIds = [], propIds = []) {
   const [users, setUsers] = useState({})
   const [props, setProps] = useState({})

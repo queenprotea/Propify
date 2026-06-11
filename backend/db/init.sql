@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS "Usuario" (
 
 -- ── Administrador inicial (seed) ──────────────────────────────────────
 -- Credenciales por defecto: admin@propify.com / Admin1234
--- ⚠️ PRODUCCIÓN: cambia la contraseña tras el primer inicio de sesión.
 -- El hash es bcrypt de 'Admin1234'.
 INSERT INTO "Usuario" (nombre, correo, telefono, password, is_admin, is_active)
 VALUES (
@@ -39,8 +38,7 @@ ON CONFLICT DO NOTHING;
 
 
 -- ── Ubicación ─────────────────────────────────────────────────
--- direccion_completa se autogenera en la capa de aplicación a partir de las partes
--- (sirve como alternativa textual accesible al mapa — WCAG 1.1.1).
+
 CREATE TABLE IF NOT EXISTS "Ubicacion" (
     id                 SERIAL PRIMARY KEY,
     direccion_completa TEXT,
@@ -57,9 +55,7 @@ CREATE TABLE IF NOT EXISTS "Ubicacion" (
 
 
 -- ── Catálogos normalizados de inmueble ────────────────────────
--- Tablas catálogo (id, valor UNIQUE) para administración, escalabilidad,
--- consistencia y reportes/filtros. La integridad de Inmueble se garantiza
--- por FK al 'valor' del catálogo (reemplaza a los antiguos CHECK).
+
 CREATE TABLE IF NOT EXISTS "TipoInmueble" (
     id SERIAL PRIMARY KEY, valor VARCHAR(50) UNIQUE NOT NULL
 );
