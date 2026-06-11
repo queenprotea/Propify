@@ -12,4 +12,10 @@ export const authApi = {
     client.post('/users/register/admin', data).then((r) => r.data),
 
   verifyToken: () => client.get('/users/verify-token').then((r) => r.data),
+
+  verifyEmail: (token) =>
+    client.get('/users/verify-email', { params: { token } }).then((r) => r.data),
+
+  resendVerification: (correo) =>
+    client.post('/users/resend-verification', { correo }).then((r) => r.data),
 }

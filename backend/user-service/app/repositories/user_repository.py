@@ -1,3 +1,4 @@
+import secrets
 from sqlalchemy.orm import Session
 from app import models, schemas
 from app.security import get_password_hash
@@ -35,7 +36,9 @@ def create_user(db: Session, usuario: schemas.UserCreate):
             nombre=usuario.nombre,
             telefono=usuario.telefono,
             is_active=True,
-            is_admin=False
+            is_admin=False,
+            is_verified=False,
+            verification_token=secrets.token_urlsafe(32)
         )
         db.add(new_user)
         db.commit()
@@ -63,7 +66,8 @@ def create_user_admin(db: Session, usuario: schemas.UserCreate):
             nombre=usuario.nombre,
             telefono=usuario.telefono,
             is_active=True,
-            is_admin=True
+            is_admin=True,
+            is_verified=True
         )
         db.add(new_user)
         db.commit()
@@ -410,3 +414,24 @@ def get_visits_by_estado(
         .filter(models.EstadoVisita.valor == estado)
         .all()
     )
+
+
+def get_user_by_verification_token(db: Session, token: str):
+    return db.query(models.Usuario).filter(
+        models.Usuario.verification_token == token
+    ).first()
+
+
+def mark_verified(db: Session, user: models.Usuario):
+    user.is_verified = True
+    user.verification_token = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def reset_verification_token(db: Session, user: models.Usuario):
+    user.verification_token = secrets.token_urlsafe(32)
+    db.commit()
+    db.refresh(user)
+    return user

@@ -42,8 +42,8 @@ export default function Register() {
         is_active: true,
         is_admin: false,
       })
-      setOk('Cuenta creada. Ahora puedes iniciar sesión.')
-      setTimeout(() => navigate('/login'), 1200)
+      setOk('Cuenta creada. Te enviamos un enlace de verificación a tu correo; confírmalo para poder iniciar sesión.')
+      setTimeout(() => navigate('/login'), 4000)
     } catch (err) {
       setError(err.response?.data?.detail || 'No se pudo crear la cuenta.')
     } finally {

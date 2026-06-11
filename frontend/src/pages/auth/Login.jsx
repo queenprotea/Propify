@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { authApi } from '../../api/auth'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 
@@ -11,16 +12,30 @@ export default function Login() {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+  const [sinVerificar, setSinVerificar] = useState(false)
 
   async function onSubmit(e) {
     e.preventDefault()
-    setError('')
+    setError(''); setInfo(''); setSinVerificar(false)
     try {
       const user = await login(identifier.trim(), password)
       const dest = location.state?.from || (user?.isAdmin ? '/admin' : '/')
       navigate(dest, { replace: true })
     } catch (err) {
-      setError(err.response?.data?.detail || 'No se pudo iniciar sesión. Verifica tus datos.')
+      const detail = err.response?.data?.detail || 'No se pudo iniciar sesión. Verifica tus datos.'
+      setError(detail)
+      if (typeof detail === 'string' && detail.includes('no está verificado')) setSinVerificar(true)
+    }
+  }
+
+  async function reenviar() {
+    setInfo(''); setError('')
+    try {
+      const r = await authApi.resendVerification(identifier.trim())
+      setInfo(r.message || 'Enlace reenviado.')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'No se pudo reenviar el enlace.')
     }
   }
 
@@ -29,6 +44,14 @@ export default function Login() {
       <h1>Iniciar sesión</h1>
       <div className="card">
         <Alert type="error">{error}</Alert>
+        <Alert type="success">{info}</Alert>
+        {sinVerificar && (
+          <p>
+            <button className="btn secondary" type="button" onClick={reenviar}>
+              Reenviar enlace de verificación
+            </button>
+          </p>
+        )}
         <form onSubmit={onSubmit} noValidate>
           <Field
             label="Correo electrónico o teléfono"

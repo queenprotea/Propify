@@ -11,6 +11,7 @@ import MyRequests from './pages/buyer/MyRequests'
 
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
+import VerifyEmail from './pages/auth/VerifyEmail'
 
 import Dashboard from './pages/admin/Dashboard'
 import PropertiesAdmin from './pages/admin/PropertiesAdmin'
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/inmueble/:id" element={<PropertyDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
+        <Route path="/verificar-correo" element={<VerifyEmail />} />
 
         {/* Usuario autenticado */}
         <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

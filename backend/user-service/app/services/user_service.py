@@ -3,7 +3,7 @@ from datetime import timedelta
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app import schemas, security
+from app import schemas, security, email_utils
 from app.database import get_db
 from app.repositories import user_repository
 
@@ -31,6 +31,7 @@ class UserService:
             self._check_unique(user_data.correo, user_data.telefono)
 
             db_user = user_repository.create_user(self.db, user_data)
+            email_utils.enviar_verificacion(db_user.correo, db_user.nombre, db_user.verification_token)
 
             return db_user
         except (ValueError, ConnectionError) as e:
@@ -64,6 +65,9 @@ class UserService:
             
             if not user.is_active:
                 raise ValueError("Incorrect credentials")
+
+            if not user.is_verified:
+                raise ValueError("Tu correo no está verificado. Revisa tu bandeja de entrada o solicita un nuevo enlace.")
 
             access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
             access_token = security.create_access_token(
@@ -147,6 +151,19 @@ class UserService:
     
         return user
         
+    def verify_email(self, token: str):
+        user = user_repository.get_user_by_verification_token(self.db, token)
+        if not user:
+            raise ValueError("El enlace de verificación no es válido o ya fue utilizado")
+        return user_repository.mark_verified(self.db, user)
+
+    def resend_verification(self, correo: str):
+        user = user_repository.get_user_by_correo(self.db, correo)
+        # No se revela si el correo existe o ya está verificado.
+        if user and not user.is_verified:
+            user = user_repository.reset_verification_token(self.db, user)
+            email_utils.enviar_verificacion(user.correo, user.nombre, user.verification_token)
+
     def forward_auth_header(self, token: str):
         return {"Authorization": f"Bearer {token}"}
     

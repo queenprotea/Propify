@@ -31,5 +31,7 @@ class Usuario(Base):
     password = Column(String(255), nullable=False)
     is_admin = Column(Boolean, nullable=False, default=False)
     is_active = Column(Boolean, nullable=False, default=True)
+    is_verified = Column(Boolean, nullable=False, default=False)
+    verification_token = Column(String(64), nullable=True)
 
     visitas = relationship("Visita", back_populates="usuario")

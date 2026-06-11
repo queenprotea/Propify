@@ -94,6 +94,23 @@ def login(
         )
         
 
+@app.get("/verify-email")
+def verify_email(token: str, user_service: UserService = Depends(get_user_service)):
+    try:
+        u = user_service.verify_email(token)
+        audit.registrar(user_service.db, u.id, "correo_verificado", "Usuario", u.id)
+        return {"message": "Correo verificado correctamente. Ya puedes iniciar sesión."}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.post("/resend-verification")
+def resend_verification(body: schemas.ResendVerification,
+                        user_service: UserService = Depends(get_user_service)):
+    user_service.resend_verification(body.correo)
+    return {"message": "Si el correo está registrado y pendiente de verificar, se envió un nuevo enlace."}
+
+
 @app.get("/verify-token", response_model=schemas.User)
 def verify_token(current_user: schemas.User = Depends(get_current_user)):
     return current_user

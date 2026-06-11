@@ -7,18 +7,21 @@ CREATE TABLE IF NOT EXISTS "Usuario" (
     telefono   VARCHAR(20)   UNIQUE,
     password   VARCHAR(255)  NOT NULL,
     is_admin   BOOLEAN   NOT NULL DEFAULT FALSE,
-    is_active  BOOLEAN   NOT NULL DEFAULT TRUE
+    is_active  BOOLEAN   NOT NULL DEFAULT TRUE,
+    is_verified BOOLEAN  NOT NULL DEFAULT FALSE,
+    verification_token VARCHAR(64)
 );
 
 -- ── Administrador inicial (seed) ──────────────────────────────────────
 -- Credenciales por defecto: admin@propify.com / Admin1234
 -- El hash es bcrypt de 'Admin1234'.
-INSERT INTO "Usuario" (nombre, correo, telefono, password, is_admin, is_active)
+INSERT INTO "Usuario" (nombre, correo, telefono, password, is_admin, is_active, is_verified)
 VALUES (
     'Administrador',
     'admin@propify.com',
     NULL,
     '$2b$12$lgryabEiKCZ6JILnwLg/mOqmjQar3JRmrWfJJqyGs2msckUQFiMvW',
+    TRUE,
     TRUE,
     TRUE
 )

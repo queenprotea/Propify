@@ -86,9 +86,19 @@ class User(UserBase):
     telefono: str | None = None
     is_admin: bool
     is_active: bool
+    is_verified: bool = False
 
     class Config:
         from_attributes = True  # Allows ORM mode (translates ORM object -> Pydantic model)
+
+
+class ResendVerification(BaseModel):
+    correo: str
+
+    @field_validator("correo")
+    @classmethod
+    def _correo(cls, v):
+        return validar_correo(v)
 
 # Schema for the login request
 class Token(BaseModel):
