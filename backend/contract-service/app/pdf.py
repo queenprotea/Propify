@@ -50,8 +50,9 @@ def _inmueble_desc(inmueble, ubicacion, contrato):
     if not inmueble:
         return f"Inmueble con identificador #{contrato.inmueble_id}"
     partes = [inmueble.get("titulo", "")]
-    if inmueble.get("tipo"):
-        partes.append(f"tipo {inmueble['tipo']}")
+    tipo_valor = (inmueble.get("tipo_inmueble") or {}).get("valor")
+    if tipo_valor:
+        partes.append(f"tipo {tipo_valor}")
     dir_ = (ubicacion or {}).get("direccion_completa") if ubicacion else None
     if dir_:
         partes.append(f"ubicado en {dir_}")

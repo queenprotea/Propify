@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { propertiesApi, locationsApi, imagesApi } from '../../api/properties'
-import { ESTADOS_REPUBLICA, capitalizar } from '../../utils/constants'
+import { capitalizar } from '../../utils/constants'
 import { useCategorias } from '../../hooks/useCategorias'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
@@ -9,12 +9,12 @@ import Spinner from '../../components/Spinner'
 import LocationPicker from '../../components/LocationPicker'
 
 const inmuebleInit = {
-  titulo: '', descripcion: '', precio: '', tipo: '', operacion: '', uso: '', estado: 'disponible',
+  titulo: '', descripcion: '', precio: '', tipo_id: '', estado_id: '',
   num_recamaras: '', num_banos: '', num_estacionamientos: '', niveles: '',
   area_construccion: '', area_terreno: '', amueblado: false,
 }
 const ubicacionInit = {
-  estado: '', ciudad: '', colonia: '', calle: '', numero_exterior: '', numero_interior: '',
+  estado_id: '', ciudad: '', colonia: '', calle: '', numero_exterior: '', numero_interior: '',
   codigo_postal: '', latitud: '', longitud: '',
 }
 
@@ -43,12 +43,10 @@ export default function PropertyForm() {
         if (!activo) return
         setInm({ ...inmuebleInit, ...data, descripcion: data.descripcion || '' })
         setUbicacionId(data.ubicacion_id)
-        if (data.ubicacion_id) {
-          const u = await locationsApi.get(data.ubicacion_id)
-          if (activo) setUbi({ ...ubicacionInit, ...u, numero_interior: u.numero_interior || '' })
+        if (data.ubicacion) {
+          setUbi({ ...ubicacionInit, ...data.ubicacion, numero_interior: data.ubicacion.numero_interior || '' })
         }
-        const f = await imagesApi.byInmueble(id)
-        if (activo) setFotos(f || [])
+        setFotos(data.imagenes || [])
       } catch (err) {
         if (activo) setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudo cargar el inmueble.' })
       } finally {
@@ -63,12 +61,18 @@ export default function PropertyForm() {
   const setU = (f) => (e) => setUbi((s) => ({ ...s, [f]: e.target.value }))
 
   // Aplica la ubicación elegida en el mapa, rellenando solo los campos con valor.
+  // El nombre del estado (geocodificador) se traduce a su id de catálogo.
   function aplicarUbicacionMapa(info) {
     setUbi((s) => {
       const next = { ...s }
       for (const [k, v] of Object.entries(info)) {
-        if (k === 'direccion_completa') continue
+        if (k === 'direccion_completa' || k === 'estado') continue
         if (v !== undefined && v !== null && v !== '') next[k] = String(v)
+      }
+      if (info.estado) {
+        const normaliza = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        const match = cat.estados_republica.find((e) => normaliza(e.valor) === normaliza(info.estado))
+        if (match) next.estado_id = String(match.id)
       }
       return next
     })
@@ -80,10 +84,8 @@ export default function PropertyForm() {
       titulo: inm.titulo.trim(),
       descripcion: inm.descripcion.trim() || null,
       precio: Number(inm.precio),
-      tipo: inm.tipo,
-      operacion: inm.operacion,
-      uso: inm.uso,
-      estado: inm.estado,
+      tipo_id: Number(inm.tipo_id),
+      estado_id: Number(inm.estado_id),
       num_recamaras: num(inm.num_recamaras),
       num_banos: num(inm.num_banos),
       num_estacionamientos: num(inm.num_estacionamientos),
@@ -98,7 +100,7 @@ export default function PropertyForm() {
   function payloadUbicacion() {
     const num = (v) => (v === '' || v == null ? null : Number(v))
     return {
-      estado: ubi.estado, ciudad: ubi.ciudad, colonia: ubi.colonia, calle: ubi.calle,
+      estado_id: Number(ubi.estado_id), ciudad: ubi.ciudad, colonia: ubi.colonia, calle: ubi.calle,
       numero_exterior: ubi.numero_exterior, numero_interior: ubi.numero_interior || null,
       codigo_postal: ubi.codigo_postal, latitud: num(ubi.latitud), longitud: num(ubi.longitud),
     }
@@ -164,10 +166,8 @@ export default function PropertyForm() {
           <Field label="Descripción" as="textarea" value={inm.descripcion} onChange={setI('descripcion')} />
           <div className="grid form-2">
             <Field label="Precio (MXN)" type="number" min="0" value={inm.precio} onChange={setI('precio')} required />
-            <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.tipo} onChange={setI('tipo')} required />
-            <Field label="Operación" as="select" options={cat.operaciones.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.operacion} onChange={setI('operacion')} required />
-            <Field label="Uso" as="select" options={cat.usos.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.uso} onChange={setI('uso')} required />
-            <Field label="Estado" as="select" options={cat.estados.map((t) => ({ value: t, label: capitalizar(t) }))} value={inm.estado} onChange={setI('estado')} required />
+            <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t.id, label: capitalizar(t.valor) }))} value={inm.tipo_id} onChange={setI('tipo_id')} required />
+            <Field label="Estado" as="select" options={cat.estados.map((t) => ({ value: t.id, label: capitalizar(t.valor) }))} value={inm.estado_id} onChange={setI('estado_id')} required hint="'En venta' o 'en renta' define la operación ofertada." />
             <Field label="Recámaras" type="number" min="0" value={inm.num_recamaras} onChange={setI('num_recamaras')} />
             <Field label="Baños" type="number" min="0" value={inm.num_banos} onChange={setI('num_banos')} />
             <Field label="Estacionamientos" type="number" min="0" value={inm.num_estacionamientos} onChange={setI('num_estacionamientos')} />
@@ -196,7 +196,7 @@ export default function PropertyForm() {
             Puedes ajustar los datos manualmente. La dirección completa se genera automáticamente.
           </p>
           <div className="grid form-2">
-            <Field label="Estado" as="select" options={ESTADOS_REPUBLICA} value={ubi.estado} onChange={setU('estado')} required />
+            <Field label="Estado" as="select" options={cat.estados_republica.map((e) => ({ value: e.id, label: e.valor }))} value={ubi.estado_id} onChange={setU('estado_id')} required />
             <Field label="Ciudad" value={ubi.ciudad} onChange={setU('ciudad')} required />
             <Field label="Colonia" value={ubi.colonia} onChange={setU('colonia')} required />
             <Field label="Calle" value={ubi.calle} onChange={setU('calle')} required />
@@ -220,10 +220,10 @@ export default function PropertyForm() {
           <div className="grid cards">
             {fotos.map((f) => (
               <figure key={f.id} className="stack">
-                <img src={f.url_archivo} alt={f.texto_alternativo} style={{ width: '100%', borderRadius: 'var(--radius)' }} />
-                <figcaption className="muted">{f.texto_alternativo}</figcaption>
+                <img src={f.url_archivo} alt={f.descripcion} style={{ width: '100%', borderRadius: 'var(--radius)' }} />
+                <figcaption className="muted">{f.descripcion}</figcaption>
                 <button className="btn small danger" type="button" onClick={() => eliminarImagen(f.id)}>
-                  Eliminar<span className="sr-only"> imagen: {f.texto_alternativo}</span>
+                  Eliminar<span className="sr-only"> imagen: {f.descripcion}</span>
                 </button>
               </figure>
             ))}

@@ -6,9 +6,8 @@ import Spinner from '../../components/Spinner'
 
 const CATALOGOS = [
   { key: 'tipos', label: 'Tipos de inmueble', editable: true },
-  { key: 'usos', label: 'Usos del inmueble', editable: true },
-  { key: 'operaciones', label: 'Tipos de operación', editable: false },
   { key: 'estados', label: 'Estados del inmueble', editable: false },
+  { key: 'estados_republica', label: 'Estados de la república', editable: false },
 ]
 
 export default function CatalogsAdmin() {
@@ -48,8 +47,8 @@ export default function CatalogsAdmin() {
   return (
     <div className="stack">
       <h1>Catálogos de inmuebles</h1>
-      <p className="muted">Administra los valores de tipo y uso (escalables). Operación y estado son fijos porque
-        determinan los flujos de negocio (renta/venta, disponible/reservado/vendido/rentado).</p>
+      <p className="muted">Administra los tipos de inmueble (escalables). Los estados son fijos porque
+        determinan los flujos de negocio (en venta/en renta, reservado, vendido, rentado, no disponible).</p>
       <Alert type="error">{msg.err}</Alert>
       <Alert type="success">{msg.ok}</Alert>
 
@@ -59,11 +58,11 @@ export default function CatalogsAdmin() {
             <h2 style={{ margin: 0 }}>{label}</h2>
             <ul>
               {(cat[key] || []).map((v) => (
-                <li key={v} className="row" style={{ justifyContent: 'space-between' }}>
-                  <span>{capitalizar(v)}</span>
+                <li key={v.id} className="row" style={{ justifyContent: 'space-between' }}>
+                  <span>{capitalizar(v.valor)}</span>
                   {editable && (
-                    <button className="btn small danger" type="button" onClick={() => eliminar(key, v)}>
-                      Eliminar<span className="sr-only"> {v}</span>
+                    <button className="btn small danger" type="button" onClick={() => eliminar(key, v.valor)}>
+                      Eliminar<span className="sr-only"> {v.valor}</span>
                     </button>
                   )}
                 </li>

@@ -359,13 +359,12 @@ def crear_solicitud(datos: schemas.SolicitudCreate, db: Session = Depends(get_db
     inm = property_client.get_inmueble(datos.inmueble_id)
     if not inm:
         raise HTTPException(status_code=404, detail="El inmueble no existe")
-    # Regla de negocio: el inmueble debe estar disponible.
-    if inm.get("estado") != "disponible":
+    # Regla de negocio: el estado del inmueble debe coincidir con la operación solicitada.
+    estado_actual = property_client.estado_inmueble(inm)
+    esperado = "en renta" if tipo == "renta" else "en venta"
+    if estado_actual != esperado:
         raise HTTPException(status_code=409,
-                            detail=f"El inmueble no está disponible (estado: {inm.get('estado')})")
-    # La operación solicitada debe coincidir con la oferta del inmueble.
-    if inm.get("operacion") != tipo:
-        raise HTTPException(status_code=422, detail=f"El inmueble no está ofertado en {tipo}")
+                            detail=f"El inmueble no está disponible para {tipo} (estado: {estado_actual})")
 
     sol = crud.crear_solicitud(db, int(user["sub"]), datos)
     crud.registrar_auditoria(db, int(user["sub"]), f"solicitud_{tipo}_creada", "SolicitudRenta", sol.id,
@@ -577,8 +576,9 @@ def registrar_renta_manual(datos: schemas.RentaManualCreate, request: Request,
     inm = property_client.get_inmueble(datos.inmueble_id)
     if not inm:
         raise HTTPException(status_code=404, detail="El inmueble no existe")
-    if inm.get("estado") != "disponible":
-        raise HTTPException(status_code=409, detail=f"El inmueble no está disponible (estado: {inm.get('estado')})")
+    estado_actual = property_client.estado_inmueble(inm)
+    if estado_actual != "en renta":
+        raise HTTPException(status_code=409, detail=f"El inmueble no está disponible para renta (estado: {estado_actual})")
 
     contrato = crud.crear_contrato(db, schemas.ContratoCreate(
         fecha_inicio=datos.fecha_inicio, fecha_fin=datos.fecha_fin,
@@ -646,14 +646,15 @@ def _cerrar_renta(db, contrato_id, nuevo_estado, request, admin):
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
     crud.cambiar_estado_contrato(db, contrato, nuevo_estado)
-    # Liberar el inmueble: vuelve a 'disponible'.
+    # Liberar el inmueble: vuelve a ofertarse según su operación.
+    liberado = "en renta" if contrato.tipo == "Renta" else "en venta"
     try:
-        property_client.set_estado_inmueble(contrato.inmueble_id, "disponible",
+        property_client.set_estado_inmueble(contrato.inmueble_id, liberado,
                                              request.headers.get("Authorization", ""))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Estado actualizado pero no se pudo liberar el inmueble: {e}")
     crud.registrar_auditoria(db, int(admin["sub"]), f"renta_{nuevo_estado}", "Contrato", contrato_id,
-                             f"inmueble {contrato.inmueble_id} -> disponible")
+                             f"inmueble {contrato.inmueble_id} -> {liberado}")
     return contrato
 
 

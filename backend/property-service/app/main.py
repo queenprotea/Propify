@@ -15,7 +15,7 @@ from app.services.ubicacion_service import UbicacionService, get_ubicacion_servi
 
 from app.repositories import inmueble_repository ,contacto_repository, historial_repository, imagen_repository, ubicacion_repository
 
-from app import schemas, enums, audit
+from app import schemas, enums, audit, models
 import os
 import uuid
 
@@ -60,6 +60,35 @@ def get_categorias(db = Depends(get_db)):
         "estados": [{"id": e.id, "valor": e.valor} for e in inmueble_repository.get_all_estado_inmueble(db)],
         "estados_republica": [{"id": e.id, "valor": e.valor} for e in ubicacion_repository.get_all_estado_republica(db)],
     }
+
+
+@app.post("/categorias/tipos", summary="Agregar un tipo de inmueble (administrador)")
+def add_tipo_inmueble(body: dict, current_user = Depends(get_current_user), db = Depends(get_db)):
+    require_admin(current_user)
+    valor = str(body.get("valor", "")).strip().lower()
+    if not valor:
+        raise HTTPException(status_code=422, detail="El valor es obligatorio")
+    if inmueble_repository.get_tipo_inmueble_by_valor(db, valor):
+        raise HTTPException(status_code=409, detail="El valor ya existe en el catálogo")
+    row = models.TipoInmueble(valor=valor)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id, "valor": row.valor}
+
+
+@app.delete("/categorias/tipos/{valor}", summary="Eliminar un tipo de inmueble (administrador)")
+def delete_tipo_inmueble(valor: str, current_user = Depends(get_current_user), db = Depends(get_db)):
+    require_admin(current_user)
+    row = inmueble_repository.get_tipo_inmueble_by_valor(db, valor)
+    if not row:
+        raise HTTPException(status_code=404, detail="Valor no encontrado")
+    en_uso = db.query(models.Inmueble).filter(models.Inmueble.tipo_id == row.id).first()
+    if en_uso:
+        raise HTTPException(status_code=409, detail="No se puede eliminar: hay inmuebles con este tipo")
+    db.delete(row)
+    db.commit()
+    return {"message": "Valor eliminado"}
 
 
 #------------------------------------

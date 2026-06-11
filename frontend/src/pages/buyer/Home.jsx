@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { propertiesApi, locationsApi, imagesApi } from '../../api/properties'
-import { capitalizar } from '../../utils/constants'
+import { propertiesApi } from '../../api/properties'
+import { capitalizar, estadoDe, tipoDe, usoDe, operacionDe, ESTADOS_PUBLICOS } from '../../utils/constants'
 import { useCategorias } from '../../hooks/useCategorias'
 import Field from '../../components/Field'
 import Spinner from '../../components/Spinner'
@@ -17,8 +17,6 @@ const filtrosInit = {
 export default function Home() {
   const cat = useCategorias()
   const [inmuebles, setInmuebles] = useState([])
-  const [ubicaciones, setUbicaciones] = useState({})
-  const [imagenes, setImagenes] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filtros, setFiltros] = useState(filtrosInit)
@@ -29,18 +27,11 @@ export default function Home() {
     async function cargar() {
       setLoading(true); setError('')
       try {
-        const lista = await propertiesApi.list(100, 0)
+        // Listado público: solo inmuebles visibles (en venta / en renta / reservado),
+        // con ubicación e imágenes embebidas.
+        const lista = await propertiesApi.disponibles()
         if (!activo) return
         setInmuebles(lista)
-        const ubis = {}; const imgs = {}
-        await Promise.all(
-          lista.map(async (inm) => {
-            try { if (inm.ubicacion_id) ubis[inm.id] = await locationsApi.get(inm.ubicacion_id) } catch { /* */ }
-            try { const f = await imagesApi.byInmueble(inm.id); if (f?.length) imgs[inm.id] = f[0] } catch { /* */ }
-          }),
-        )
-        if (!activo) return
-        setUbicaciones(ubis); setImagenes(imgs)
       } catch (err) {
         if (activo) setError(err.response?.data?.detail || 'No se pudieron cargar los inmuebles.')
       } finally {
@@ -55,26 +46,27 @@ export default function Home() {
 
   const resultados = useMemo(() => {
     return inmuebles.filter((inm) => {
-      const ubi = ubicaciones[inm.id]
+      const ubi = inm.ubicacion
       if (filtros.texto) {
         const t = filtros.texto.toLowerCase()
         const ok = inm.titulo?.toLowerCase().includes(t) || inm.descripcion?.toLowerCase().includes(t) ||
-          ubi?.ciudad?.toLowerCase().includes(t) || ubi?.colonia?.toLowerCase().includes(t) || ubi?.estado?.toLowerCase().includes(t)
+          ubi?.ciudad?.toLowerCase().includes(t) || ubi?.colonia?.toLowerCase().includes(t) ||
+          ubi?.estado_republica?.valor?.toLowerCase().includes(t)
         if (!ok) return false
       }
-      if (filtros.tipo && inm.tipo !== filtros.tipo) return false
-      if (filtros.operacion && inm.operacion !== filtros.operacion) return false
-      if (filtros.uso && inm.uso !== filtros.uso) return false
-      if (filtros.estado && inm.estado !== filtros.estado) return false
+      if (filtros.tipo && tipoDe(inm) !== filtros.tipo) return false
+      if (filtros.operacion && operacionDe(inm) !== filtros.operacion) return false
+      if (filtros.uso && usoDe(inm) !== filtros.uso) return false
+      if (filtros.estado && estadoDe(inm) !== filtros.estado) return false
       if (filtros.precioMin && Number(inm.precio) < Number(filtros.precioMin)) return false
       if (filtros.precioMax && Number(inm.precio) > Number(filtros.precioMax)) return false
       if (filtros.recamaras && Number(inm.num_recamaras || 0) < Number(filtros.recamaras)) return false
       return true
     })
-  }, [inmuebles, ubicaciones, filtros])
+  }, [inmuebles, filtros])
 
   const puntos = resultados.map((inm) => {
-    const ubi = ubicaciones[inm.id]
+    const ubi = inm.ubicacion
     return { id: inm.id, titulo: inm.titulo, lat: ubi?.latitud, lng: ubi?.longitud, direccion: ubi?.direccion_completa || 'Dirección no disponible' }
   })
 
@@ -100,8 +92,8 @@ export default function Home() {
 
           <form className="hero-search" aria-label="Búsqueda rápida" onSubmit={(e) => e.preventDefault()}>
             <Field label="¿Dónde? Ciudad, zona o título" value={filtros.texto} onChange={set('texto')} placeholder="Ej. Cancún, Polanco…" />
-            <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t, label: capitalizar(t) }))} value={filtros.tipo} onChange={set('tipo')} />
-            <Field label="Uso" as="select" options={cat.usos.map((t) => ({ value: t, label: capitalizar(t) }))} value={filtros.uso} onChange={set('uso')} />
+            <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t.valor, label: capitalizar(t.valor) }))} value={filtros.tipo} onChange={set('tipo')} />
+            <Field label="Uso" as="select" options={['residencial', 'comercial'].map((t) => ({ value: t, label: capitalizar(t) }))} value={filtros.uso} onChange={set('uso')} />
             <a className="btn" href="#resultados">Buscar</a>
           </form>
         </div>
@@ -121,7 +113,7 @@ export default function Home() {
                 <Field label="Precio mínimo" type="number" min="0" value={filtros.precioMin} onChange={set('precioMin')} />
                 <Field label="Precio máximo" type="number" min="0" value={filtros.precioMax} onChange={set('precioMax')} />
                 <Field label="Recámaras (mínimo)" type="number" min="0" value={filtros.recamaras} onChange={set('recamaras')} />
-                <Field label="Estado" as="select" options={['disponible', 'reservado', 'vendido', 'rentado']} value={filtros.estado} onChange={set('estado')} />
+                <Field label="Estado" as="select" options={ESTADOS_PUBLICOS.map((e) => ({ value: e, label: capitalizar(e) }))} value={filtros.estado} onChange={set('estado')} />
               </div>
               <button type="button" className="btn secondary" onClick={() => setFiltros(filtrosInit)}>Limpiar filtros</button>
             </details>
@@ -143,7 +135,7 @@ export default function Home() {
             ) : (
               <div className="grid cards">
                 {resultados.map((inm) => (
-                  <PropertyCard key={inm.id} inmueble={inm} imagen={imagenes[inm.id]} />
+                  <PropertyCard key={inm.id} inmueble={inm} />
                 ))}
               </div>
             )}

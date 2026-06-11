@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { propertiesApi, historyApi } from '../../api/properties'
-import { ESTADOS, capitalizar, formatoMoneda } from '../../utils/constants'
+import { propertiesApi } from '../../api/properties'
+import { capitalizar, formatoMoneda, estadoDe, tipoDe, operacionDe, claseEstado } from '../../utils/constants'
+import { useCategorias } from '../../hooks/useCategorias'
 import DataTable from '../../components/DataTable'
 import Alert from '../../components/Alert'
 import Spinner from '../../components/Spinner'
 
 export default function PropertiesAdmin() {
+  const cat = useCategorias()
   const [inmuebles, setInmuebles] = useState([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState({ ok: '', err: '' })
@@ -25,23 +27,22 @@ export default function PropertiesAdmin() {
   useEffect(() => { cargar() }, [])
 
   async function eliminar(inm) {
-    if (!window.confirm(`¿Eliminar el inmueble "${inm.titulo}"? Esta acción no se puede deshacer.`)) return
+    if (!window.confirm(`¿Eliminar el inmueble "${inm.titulo}"? Pasará a 'no disponible' y dejará de mostrarse al público (eliminación lógica).`)) return
     setMsg({ ok: '', err: '' })
     try {
       await propertiesApi.remove(inm.id)
-      setMsg({ ok: `Inmueble "${inm.titulo}" eliminado.`, err: '' })
+      setMsg({ ok: `Inmueble "${inm.titulo}" marcado como no disponible.`, err: '' })
       cargar()
     } catch (err) {
       setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudo eliminar el inmueble.' })
     }
   }
 
-  async function cambiarEstado(inm, nuevoEstado) {
+  async function cambiarEstado(inm, estadoId) {
     setMsg({ ok: '', err: '' })
     try {
-      // Registrar en historial actualiza también el estado actual del inmueble.
-      await historyApi.create({ inmueble_id: inm.id, estado: nuevoEstado })
-      setMsg({ ok: `Estado de "${inm.titulo}" actualizado a ${nuevoEstado}.`, err: '' })
+      const r = await propertiesApi.updateStatus(inm.id, Number(estadoId))
+      setMsg({ ok: `Estado de "${inm.titulo}" actualizado a ${estadoDe(r) || 'nuevo estado'}.`, err: '' })
       cargar()
     } catch (err) {
       setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudo cambiar el estado.' })
@@ -50,10 +51,10 @@ export default function PropertiesAdmin() {
 
   const columns = [
     { key: 'titulo', header: 'Título', render: (r) => <Link to={`/inmueble/${r.id}`}>{r.titulo}</Link> },
-    { key: 'tipo', header: 'Tipo', render: (r) => capitalizar(r.tipo) },
-    { key: 'operacion', header: 'Operación', render: (r) => capitalizar(r.operacion) },
+    { key: 'tipo', header: 'Tipo', render: (r) => capitalizar(tipoDe(r)) },
+    { key: 'operacion', header: 'Operación', render: (r) => capitalizar(operacionDe(r)) || '—' },
     { key: 'precio', header: 'Precio', render: (r) => formatoMoneda(r.precio) },
-    { key: 'estado', header: 'Estado', render: (r) => <span className={`badge ${(r.estado || '').toLowerCase()}`}>{capitalizar(r.estado)}</span> },
+    { key: 'estado', header: 'Estado', render: (r) => <span className={`badge ${claseEstado(estadoDe(r))}`}>{capitalizar(estadoDe(r))}</span> },
     {
       key: 'acciones', header: 'Acciones',
       render: (r) => (
@@ -62,10 +63,10 @@ export default function PropertiesAdmin() {
           <label className="sr-only" htmlFor={`estado-${r.id}`}>Cambiar estado de {r.titulo}</label>
           <select
             id={`estado-${r.id}`}
-            value={r.estado}
+            value={r.estado_id}
             onChange={(e) => cambiarEstado(r, e.target.value)}
           >
-            {ESTADOS.map((s) => <option key={s} value={s}>{capitalizar(s)}</option>)}
+            {cat.estados.map((s) => <option key={s.id} value={s.id}>{capitalizar(s.valor)}</option>)}
           </select>
           <button className="btn small danger" type="button" onClick={() => eliminar(r)}>
             Eliminar<span className="sr-only"> {r.titulo}</span>

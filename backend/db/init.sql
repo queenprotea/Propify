@@ -41,60 +41,43 @@ ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS "Ubicacion" (
     id                 SERIAL PRIMARY KEY,
-    direccion_completa TEXT,
     latitud            DECIMAL(10,6),
     longitud           DECIMAL(10,6),
-    estado             VARCHAR(50)  NOT NULL,
-    ciudad             VARCHAR(100) NOT NULL,
-    colonia            VARCHAR(100) NOT NULL,
-    calle              VARCHAR(100) NOT NULL,
-    numero_exterior    VARCHAR(20)  NOT NULL,
+    estado_id          INTEGER NOT NULL REFERENCES "EstadoRepublica"(id),
+    ciudad             VARCHAR(100),
+    colonia            VARCHAR(100),
+    calle              VARCHAR(100),
+    numero_exterior    VARCHAR(20),
     numero_interior    VARCHAR(20),
-    codigo_postal      VARCHAR(20)  NOT NULL
+    codigo_postal      VARCHAR(20)
 );
 
 
--- ── Catálogos normalizados de inmueble ────────────────────────
-
-CREATE TABLE IF NOT EXISTS "TipoInmueble" (
-    id SERIAL PRIMARY KEY, valor VARCHAR(50) UNIQUE NOT NULL
-);
-INSERT INTO "TipoInmueble" (valor) VALUES
-    ('casa'),('departamento'),('terreno'),('local'),('edificio'),('oficina')
-ON CONFLICT (valor) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS "OperacionInmueble" (
-    id SERIAL PRIMARY KEY, valor VARCHAR(20) UNIQUE NOT NULL
-);
-INSERT INTO "OperacionInmueble" (valor) VALUES ('venta'),('renta')
-ON CONFLICT (valor) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS "UsoInmueble" (
-    id SERIAL PRIMARY KEY, valor VARCHAR(30) UNIQUE NOT NULL
-);
-INSERT INTO "UsoInmueble" (valor) VALUES
-    ('residencial'),('comercial'),('industrial'),('mixto'),('terreno')
-ON CONFLICT (valor) DO NOTHING;
-
+-- ── Catálogos de inmueble ────────────────────────
 CREATE TABLE IF NOT EXISTS "EstadoInmueble" (
-    id SERIAL PRIMARY KEY, valor VARCHAR(20) UNIQUE NOT NULL
+    id    SERIAL PRIMARY KEY,
+    valor VARCHAR(50) UNIQUE NOT NULL DEFAULT 'en venta'
 );
 INSERT INTO "EstadoInmueble" (valor) VALUES
-    ('disponible'),('reservado'),('vendido'),('rentado')
-ON CONFLICT (valor) DO NOTHING;
+    ('en venta'), ('vendido'), ('en renta'), ('rentado'), ('reservado'), ('no disponible')
+ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS "TipoInmueble" (
+    id    SERIAL PRIMARY KEY,
+    valor VARCHAR(50) UNIQUE NOT NULL DEFAULT 'departamento'
+);
+INSERT INTO "TipoInmueble" (valor) VALUES ('departamento'), ('casa'), ('edificio'), ('mansion'), ('cabaña'), ('local comercial'), ('terreno'), ('casa en condiminio'), ('bodega comercial'), ('departamento compartido'), ('duplex'), ('huerta'), ('local de centro comercial'),('oficina'), ('quinta'), ('rancho'), ('terreno comercial'), ('terreno industrial'), ('villa')
+ON CONFLICT DO NOTHING;
 
 
 -- ── Inmueble ──────────────────────────────────────────────────
--- tipo/operacion/uso/estado referencian (FK) el 'valor' de su catálogo.
 CREATE TABLE IF NOT EXISTS "Inmueble" (
     id                   SERIAL PRIMARY KEY,
     titulo               VARCHAR(150)   NOT NULL,
     descripcion          TEXT,
     precio               DECIMAL(12,2)  NOT NULL,
-    tipo                 VARCHAR(50)    NOT NULL REFERENCES "TipoInmueble"(valor),
-    operacion            VARCHAR(20)    NOT NULL REFERENCES "OperacionInmueble"(valor),
-    uso                  VARCHAR(30)    NOT NULL REFERENCES "UsoInmueble"(valor),
-    estado               VARCHAR(20)    NOT NULL DEFAULT 'disponible' REFERENCES "EstadoInmueble"(valor),
+    tipo_id              INTEGER        NOT NULL REFERENCES "TipoInmueble"(id),
+    estado_id            INTEGER        NOT NULL REFERENCES "EstadoInmueble"(id),
     propietario_id       INTEGER        REFERENCES "Usuario"(id),
     ubicacion_id         INTEGER        NOT NULL REFERENCES "Ubicacion"(id),
     area_construccion    DECIMAL(12,2),
@@ -162,13 +145,12 @@ CREATE TABLE IF NOT EXISTS "Clausula" (
     id_contrato  INTEGER NOT NULL REFERENCES "Contrato"(id)
 );
 
--- Imagen
--- texto_alternativo: obligatorio para accesibilidad (WCAG 1.1.1).
+-- Imagen (descripcion = texto alternativo accesible, WCAG 1.1.1)
 CREATE TABLE IF NOT EXISTS "Imagen" (
-    id                SERIAL PRIMARY KEY,
-    url_archivo       TEXT         NOT NULL,
-    texto_alternativo VARCHAR(255) NOT NULL,
-    inmueble_id       INTEGER      NOT NULL REFERENCES "Inmueble"(id)
+    id           SERIAL PRIMARY KEY,
+    url_archivo  TEXT    NOT NULL,
+    descripcion  TEXT    NOT NULL,
+    inmueble_id  INTEGER NOT NULL REFERENCES "Inmueble"(id)
 );
 
 -- ── Estado Visita ────────────────────────────────────────────────────
@@ -206,8 +188,7 @@ CREATE TABLE IF NOT EXISTS "HistorialEstado" (
     id           SERIAL PRIMARY KEY,
     fecha_inicio TIMESTAMP    DEFAULT NOW(),
     fecha_fin    TIMESTAMP,
-    estado       VARCHAR(20)  NOT NULL
-                 CHECK (estado IN ('disponible','reservado','vendido','rentado')),
+    estado_id    INTEGER      NOT NULL REFERENCES "EstadoInmueble"(id),
     inmueble_id  INTEGER      NOT NULL REFERENCES "Inmueble"(id)
 );
 

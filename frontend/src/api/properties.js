@@ -20,8 +20,11 @@ export const propertiesApi = {
 
   update: (id, data) => client.put(`${base}/inmuebles/${id}`, data).then((r) => r.data),
 
-  updateStatus: (id, estado) =>
-    client.patch(`${base}/inmuebles/id/${id}/status/${estado}`).then((r) => r.data),
+  updateStatus: (id, estadoId) =>
+    client.patch(`${base}/inmuebles/${id}/estado/${estadoId}`).then((r) => r.data),
+
+  updateStatusByValor: (id, valor) =>
+    client.patch(`${base}/inmuebles/${id}/estado-valor/${encodeURIComponent(valor)}`).then((r) => r.data),
 
   remove: (id) => client.delete(`${base}/inmuebles/${id}`).then((r) => r.data),
 
@@ -33,29 +36,28 @@ export const propertiesApi = {
 }
 
 export const locationsApi = {
-  get: (id) => client.get(`${base}/ubicaciones/${id}`).then((r) => r.data),
+  get: (id) => client.get(`${base}/ubicaciones/id/${id}`).then((r) => r.data),
   create: (data) => client.post(`${base}/ubicaciones`, data).then((r) => r.data),
   update: (id, data) => client.put(`${base}/ubicaciones/${id}`, data).then((r) => r.data),
 }
 
 export const imagesApi = {
   byInmueble: (id) => client.get(`${base}/imagenes/inmueble/${id}`).then((r) => r.data),
-  upload: (inmuebleId, file, textoAlternativo) => {
+  upload: (inmuebleId, file, descripcion) => {
     const form = new FormData()
-    form.append('inmueble_id', inmuebleId)
-    form.append('texto_alternativo', textoAlternativo)
+    form.append('descripcion', descripcion)
     form.append('file', file)
     return client
-      .post(`${base}/imagenes`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .post(`${base}/imagenes/${inmuebleId}`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then((r) => r.data)
   },
   remove: (id) => client.delete(`${base}/imagenes/${id}`).then((r) => r.data),
 }
 
 export const historyApi = {
-  byInmueble: (id) => client.get(`${base}/historial/inmueble/${id}`).then((r) => r.data),
-  current: (id) => client.get(`${base}/historial/inmueble/${id}/actual`).then((r) => r.data),
-  create: (data) => client.post(`${base}/historial`, data).then((r) => r.data),
+  byInmueble: (id) => client.get(`${base}/historial-estado/inmueble/${id}`).then((r) => r.data),
+  current: (id) => client.get(`${base}/historial-estado/inmueble/${id}/actual`).then((r) => r.data),
+  create: (data) => client.post(`${base}/historial-estado`, data).then((r) => r.data),
 }
 
 export const contactsApi = {

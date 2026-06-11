@@ -1,8 +1,25 @@
-// Catálogos de la taxonomía del inmueble (coinciden con los enums del backend).
-export const TIPOS = ['casa', 'departamento', 'terreno', 'local', 'edificio', 'oficina']
-export const OPERACIONES = ['venta', 'renta']
-export const USOS = ['residencial', 'comercial', 'industrial', 'mixto', 'terreno']
-export const ESTADOS = ['disponible', 'reservado', 'vendido', 'rentado']
+// Taxonomía del inmueble (catálogos normalizados por id en el backend).
+export const ESTADOS_INMUEBLE = ['en venta', 'vendido', 'en renta', 'rentado', 'reservado', 'no disponible']
+export const ESTADOS_PUBLICOS = ['en venta', 'en renta', 'reservado']
+export const USOS = ['residencial', 'comercial']
+
+const TIPOS_COMERCIALES = [
+  'local comercial', 'bodega comercial', 'local de centro comercial', 'oficina',
+  'terreno comercial', 'terreno industrial', 'edificio',
+]
+
+export const estadoDe = (inm) => inm?.estado_inmueble?.valor || ''
+export const tipoDe = (inm) => inm?.tipo_inmueble?.valor || ''
+export const usoDe = (inm) => (TIPOS_COMERCIALES.includes(tipoDe(inm)) ? 'comercial' : 'residencial')
+
+export function operacionDe(inm) {
+  const e = estadoDe(inm)
+  if (e === 'en venta' || e === 'vendido') return 'venta'
+  if (e === 'en renta' || e === 'rentado') return 'renta'
+  return ''
+}
+
+export const claseEstado = (valor) => (valor || '').replace(/ /g, '-')
 
 export const ESTADOS_REPUBLICA = [
   'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche', 'Chiapas',

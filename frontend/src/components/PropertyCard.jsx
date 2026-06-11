@@ -1,22 +1,23 @@
 import { Link } from 'react-router-dom'
-import { capitalizar, formatoMoneda } from '../utils/constants'
+import { capitalizar, formatoMoneda, estadoDe, tipoDe, usoDe, claseEstado } from '../utils/constants'
 
 export default function PropertyCard({ inmueble, imagen }) {
-  const estado = (inmueble.estado || '').toLowerCase()
+  const estado = estadoDe(inmueble)
+  const foto = imagen || inmueble.imagenes?.[0]
   return (
     <article className="card property-card stack">
-      {imagen ? (
-        <img src={imagen.url_archivo} alt={imagen.texto_alternativo || inmueble.titulo} />
+      {foto ? (
+        <img src={foto.url_archivo} alt={foto.descripcion || inmueble.titulo} />
       ) : (
         <img src="" alt={`Sin fotografía disponible de ${inmueble.titulo}`} />
       )}
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="price">{formatoMoneda(inmueble.precio)}</span>
-        <span className={`badge ${estado}`}>{capitalizar(estado)}</span>
+        <span className={`badge ${claseEstado(estado)}`}>{capitalizar(estado)}</span>
       </div>
       <h3 style={{ margin: 0 }}>{inmueble.titulo}</h3>
       <p className="muted" style={{ margin: 0 }}>
-        {capitalizar(inmueble.tipo)} · {capitalizar(inmueble.operacion)} · {capitalizar(inmueble.uso)}
+        {capitalizar(tipoDe(inmueble))} · {capitalizar(usoDe(inmueble))}
       </p>
       <p className="muted" style={{ margin: 0 }}>
         {inmueble.num_recamaras ?? 0} rec · {inmueble.num_banos ?? 0} baños

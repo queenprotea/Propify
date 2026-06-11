@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { propertiesApi, locationsApi, imagesApi, contactsApi, historyApi } from '../../api/properties'
+import { propertiesApi, contactsApi, historyApi } from '../../api/properties'
 import { visitsApi } from '../../api/users'
 import { rentalsApi } from '../../api/contracts'
 import { useAuth } from '../../context/AuthContext'
-import { capitalizar, formatoMoneda } from '../../utils/constants'
+import { capitalizar, formatoMoneda, estadoDe, tipoDe, usoDe, operacionDe, claseEstado } from '../../utils/constants'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 import Spinner from '../../components/Spinner'
@@ -36,15 +36,11 @@ export default function PropertyDetail() {
         const data = await propertiesApi.get(id)
         if (!activo) return
         setInm(data)
-        const [u, f, h] = await Promise.allSettled([
-          data.ubicacion_id ? locationsApi.get(data.ubicacion_id) : Promise.resolve(null),
-          imagesApi.byInmueble(id),
-          historyApi.byInmueble(id),
-        ])
+        setUbi(data.ubicacion || null)
+        setFotos(data.imagenes || [])
+        const h = await Promise.allSettled([historyApi.byInmueble(id)])
         if (!activo) return
-        if (u.status === 'fulfilled') setUbi(u.value)
-        if (f.status === 'fulfilled') setFotos(f.value || [])
-        if (h.status === 'fulfilled') setHistorial(h.value || [])
+        if (h[0].status === 'fulfilled') setHistorial(h[0].value || [])
       } catch (err) {
         if (activo) setError(err.response?.data?.detail || 'No se pudo cargar el inmueble.')
       } finally {
@@ -143,11 +139,11 @@ export default function PropertyDetail() {
       <h1>{inm.titulo}</h1>
       <p className="row">
         <span className="price" style={{ fontSize: '1.5rem' }}>{formatoMoneda(inm.precio)}</span>
-        <span className={`badge ${(inm.estado || '').toLowerCase()}`}>{capitalizar(inm.estado)}</span>
+        <span className={`badge ${claseEstado(estadoDe(inm))}`}>{capitalizar(estadoDe(inm))}</span>
       </p>
 
       {/* Solicitud de renta en línea */}
-      {inm.operacion === 'renta' && inm.estado === 'disponible' && (
+      {estadoDe(inm) === 'en renta' && (
         <div className="card stack">
           <h2>Renta en línea</h2>
           <Alert type="error">{rentaMsg.err}</Alert>
@@ -179,7 +175,7 @@ export default function PropertyDetail() {
       )}
 
       {/* Solicitud de compra en línea */}
-      {inm.operacion === 'venta' && inm.estado === 'disponible' && (
+      {estadoDe(inm) === 'en venta' && (
         <div className="card stack">
           <h2>Compra en línea</h2>
           <Alert type="error">{compraMsg.err}</Alert>
@@ -211,7 +207,7 @@ export default function PropertyDetail() {
               <img
                 key={f.id}
                 src={f.url_archivo}
-                alt={f.texto_alternativo || `Fotografía de ${inm.titulo}`}
+                alt={f.descripcion || `Fotografía de ${inm.titulo}`}
                 style={{ width: '100%', borderRadius: 'var(--radius)' }}
               />
             ))}
@@ -223,9 +219,9 @@ export default function PropertyDetail() {
         <div className="card stack">
           <h2>Características</h2>
           <dl className="stack">
-            <div><dt style={{ fontWeight: 600 }}>Tipo</dt><dd>{capitalizar(inm.tipo)}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Operación</dt><dd>{capitalizar(inm.operacion)}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Uso</dt><dd>{capitalizar(inm.uso)}</dd></div>
+            <div><dt style={{ fontWeight: 600 }}>Tipo</dt><dd>{capitalizar(tipoDe(inm))}</dd></div>
+            <div><dt style={{ fontWeight: 600 }}>Operación</dt><dd>{capitalizar(operacionDe(inm)) || '—'}</dd></div>
+            <div><dt style={{ fontWeight: 600 }}>Uso</dt><dd>{capitalizar(usoDe(inm))}</dd></div>
             <div><dt style={{ fontWeight: 600 }}>Recámaras</dt><dd>{inm.num_recamaras ?? '—'}</dd></div>
             <div><dt style={{ fontWeight: 600 }}>Baños</dt><dd>{inm.num_banos ?? '—'}</dd></div>
             <div><dt style={{ fontWeight: 600 }}>Estacionamientos</dt><dd>{inm.num_estacionamientos ?? '—'}</dd></div>
@@ -294,7 +290,7 @@ export default function PropertyDetail() {
           <ul>
             {historial.map((h) => (
               <li key={h.id}>
-                <strong>{capitalizar(h.estado)}</strong> — desde {new Date(h.fecha_inicio).toLocaleDateString('es-MX')}
+                <strong>{capitalizar(h.estado_inmueble?.valor)}</strong> — desde {new Date(h.fecha_inicio).toLocaleDateString('es-MX')}
                 {h.fecha_fin ? ` hasta ${new Date(h.fecha_fin).toLocaleDateString('es-MX')}` : ' (actual)'}
               </li>
             ))}

@@ -1,6 +1,7 @@
 """Comunicación con property-service (red interna de Docker)."""
 import os
 import requests
+from urllib.parse import quote
 
 PROPERTY_URL = os.getenv("PROPERTY_SERVICE_URL", "http://property_service:8002")
 TIMEOUT = 5
@@ -18,12 +19,17 @@ def get_inmueble(inmueble_id: int):
     return r.json()
 
 
+def estado_inmueble(inmueble: dict) -> str:
+    """Valor del estado del inmueble en la respuesta de property-service."""
+    return ((inmueble or {}).get("estado_inmueble") or {}).get("valor", "")
+
+
 def get_ubicacion(ubicacion_id: int):
     """Devuelve la ubicación o None (endpoint público)."""
     if not ubicacion_id:
         return None
     try:
-        r = requests.get(f"{PROPERTY_URL}/ubicaciones/{ubicacion_id}", timeout=TIMEOUT)
+        r = requests.get(f"{PROPERTY_URL}/ubicaciones/id/{ubicacion_id}", timeout=TIMEOUT)
     except requests.RequestException:
         return None
     if r.status_code != 200:
@@ -35,7 +41,7 @@ def set_estado_inmueble(inmueble_id: int, estado: str, auth_header: str):
     """Actualiza el estado del inmueble (requiere token de administrador)."""
     try:
         r = requests.patch(
-            f"{PROPERTY_URL}/inmuebles/id/{inmueble_id}/status/{estado}",
+            f"{PROPERTY_URL}/inmuebles/{inmueble_id}/estado-valor/{quote(estado)}",
             headers={"Authorization": auth_header},
             timeout=TIMEOUT,
         )

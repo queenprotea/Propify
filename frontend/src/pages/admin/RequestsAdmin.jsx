@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { rentalsApi } from '../../api/contracts'
-import { capitalizar, formatoMoneda } from '../../utils/constants'
+import { capitalizar, formatoMoneda, tipoDe, usoDe } from '../../utils/constants'
 import { useLookups } from '../../hooks/useLookups'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
@@ -132,7 +132,7 @@ export default function RequestsAdmin() {
                   <h4 style={{ margin: '0 0 .3rem' }}>Inmueble</h4>
                   <p className="muted" style={{ margin: 0 }}>
                     <Link to={`/inmueble/${s.inmueble_id}`}>{propLabel(s.inmueble_id)}</Link>
-                    {inm && <><br />{capitalizar(inm.tipo)} · {capitalizar(inm.uso)}<br /><strong>Precio publicado: {formatoMoneda(inm.precio)}/mes</strong></>}
+                    {inm && <><br />{capitalizar(tipoDe(inm))} · {capitalizar(usoDe(inm))}<br /><strong>Precio publicado: {formatoMoneda(inm.precio)}/mes</strong></>}
                   </p>
                 </div>
               </div>

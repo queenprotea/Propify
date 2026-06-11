@@ -1,27 +1,25 @@
 import { useEffect, useState } from 'react'
 import { propertiesApi } from '../api/properties'
-import { TIPOS, OPERACIONES, USOS, ESTADOS } from '../utils/constants'
 
-const fallback = { tipos: TIPOS, operaciones: OPERACIONES, usos: USOS, estados: ESTADOS }
+const vacio = { tipos: [], estados: [], estados_republica: [] }
 let cache = null
 
-// Carga los catálogos normalizados desde el backend (con fallback a constantes).
+// Carga los catálogos normalizados ({id, valor}) desde el backend.
 export function useCategorias() {
-  const [cat, setCat] = useState(cache || fallback)
+  const [cat, setCat] = useState(cache || vacio)
   useEffect(() => {
     if (cache) return
     let activo = true
     propertiesApi.categorias()
       .then((data) => {
         cache = {
-          tipos: data.tipos?.length ? data.tipos : TIPOS,
-          operaciones: data.operaciones?.length ? data.operaciones : OPERACIONES,
-          usos: data.usos?.length ? data.usos : USOS,
-          estados: data.estados?.length ? data.estados : ESTADOS,
+          tipos: data.tipos || [],
+          estados: data.estados || [],
+          estados_republica: data.estados_republica || [],
         }
         if (activo) setCat(cache)
       })
-      .catch(() => { /* se mantiene el fallback */ })
+      .catch(() => { /* se mantiene vacío */ })
     return () => { activo = false }
   }, [])
   return cat
