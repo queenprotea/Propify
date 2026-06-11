@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.database import get_db
-from app.repositories import inmueble_repository, ubicacion_repository
+from app.repositories import inmueble_repository, ubicacion_repository, historial_repository
 from app.enums import TipoInmueble, EstadoInmueble
 from decimal import Decimal
 
@@ -58,7 +58,12 @@ class InmuebleService:
             raise ValueError("Property location not found")
 
 
-        return inmueble_repository.create_inmueble(self.db, inmueble_data)
+        inmueble = inmueble_repository.create_inmueble(self.db, inmueble_data)
+        historial_repository.create_historial_estado(
+            self.db,
+            schemas.HistorialCreate(inmueble_id=inmueble.id, estado_id=inmueble.estado_id),
+        )
+        return inmueble
 
     def update_inmueble(self, inmueble_id: int, inmueble_update: schemas.InmuebleUpdate):
         if (
@@ -183,6 +188,10 @@ class InmuebleService:
         estado_id: int
     ):
 
+        estado = inmueble_repository.get_estado_inmueble_by_id(self.db, estado_id)
+        if not estado:
+            raise ValueError("Property state not found")
+
         inmueble = inmueble_repository.update_inmueble_status(
             self.db,
             inmueble_id,
@@ -195,6 +204,10 @@ class InmuebleService:
                 detail="Property not found"
             )
 
+        historial_repository.create_historial_estado(
+            self.db,
+            schemas.HistorialCreate(inmueble_id=inmueble_id, estado_id=estado_id),
+        )
         return inmueble
     
 

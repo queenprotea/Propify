@@ -15,11 +15,28 @@ from app.services.ubicacion_service import UbicacionService, get_ubicacion_servi
 
 from app.repositories import inmueble_repository ,contacto_repository, historial_repository, imagen_repository, ubicacion_repository
 
-from app import schemas, enums
+from app import schemas, enums, audit
 import os
 import uuid
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
 app = FastAPI(title="Property Service")
+
+
+@app.exception_handler(Exception)
+async def error_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Ocurrió un error inesperado. Inténtalo de nuevo más tarde."},
+    )
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 
 STATIC_PROPERTY_DIR = Path("/app/static/propertyImages")
 STATIC_PROPERTY_DIR.mkdir(parents=True, exist_ok=True)
@@ -35,8 +52,18 @@ def require_admin(user):
 
 # --- API Endpoints ---
 
+# Catálogos para selectores y filtros del frontend
+@app.get("/categorias")
+def get_categorias(db = Depends(get_db)):
+    return {
+        "tipos": [{"id": t.id, "valor": t.valor} for t in inmueble_repository.get_all_tipo_inmueble(db)],
+        "estados": [{"id": e.id, "valor": e.valor} for e in inmueble_repository.get_all_estado_inmueble(db)],
+        "estados_republica": [{"id": e.id, "valor": e.valor} for e in ubicacion_repository.get_all_estado_republica(db)],
+    }
+
+
 #------------------------------------
-#            inmueble 
+#            inmueble
 #------------------------------------
 
 @app.post("/inmuebles", response_model=schemas.Inmueble)
@@ -47,8 +74,11 @@ def create_inmueble(
 ):
     
     try:
-        require_admin(current_user)        
-        return inmueble_service.create_inmueble(inmueble)
+        require_admin(current_user)
+        creado = inmueble_service.create_inmueble(inmueble)
+        audit.registrar(inmueble_service.db, current_user.id, "inmueble_creado", "Inmueble",
+                        creado.id, valor_nuevo=creado.titulo)
+        return creado
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -72,7 +102,10 @@ def update_inmueble(
 ):
     try:
         require_admin(current_user)
-        return inmueble_service.update_inmueble(inmueble_id, inmueble_update)
+        actualizado = inmueble_service.update_inmueble(inmueble_id, inmueble_update)
+        audit.registrar(inmueble_service.db, current_user.id, "inmueble_modificado", "Inmueble",
+                        inmueble_id, valor_nuevo=actualizado.titulo)
+        return actualizado
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -96,7 +129,10 @@ def update_inmueble_status(
 ):
     try:
         require_admin(current_user)
-        return inmueble_service.update_inmueble_status(inmueble_id, status_id)
+        inmueble = inmueble_service.update_inmueble_status(inmueble_id, status_id)
+        audit.registrar(inmueble_service.db, current_user.id, "inmueble_estado", "Inmueble",
+                        inmueble_id, valor_nuevo=inmueble.estado_inmueble.valor)
+        return inmueble
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -110,6 +146,62 @@ def update_inmueble_status(
             detail="Service Unavailable, please try again later"
         )
     
+
+@app.patch("/inmuebles/{inmueble_id}/estado-valor/{valor}", response_model=schemas.Inmueble)
+def update_inmueble_status_by_valor(
+    inmueble_id: int,
+    valor: str,
+    current_user = Depends(get_current_user),
+    inmueble_service: InmuebleService = Depends(get_inmueble_service)
+):
+    try:
+        require_admin(current_user)
+        estado = inmueble_service.get_estado_inmueble_by_valor(valor)
+        inmueble = inmueble_service.update_inmueble_status(inmueble_id, estado.id)
+        audit.registrar(inmueble_service.db, current_user.id, "inmueble_estado", "Inmueble",
+                        inmueble_id, valor_nuevo=estado.valor)
+        return inmueble
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
+
+
+# Eliminación lógica: el inmueble pasa a 'no disponible' y deja de ser visible al público
+@app.delete("/inmuebles/{inmueble_id}", response_model=schemas.Inmueble)
+def delete_inmueble(
+    inmueble_id: int,
+    current_user = Depends(get_current_user),
+    inmueble_service: InmuebleService = Depends(get_inmueble_service)
+):
+    try:
+        require_admin(current_user)
+        estado = inmueble_service.get_estado_inmueble_by_valor("no disponible")
+        inmueble = inmueble_service.update_inmueble_status(inmueble_id, estado.id)
+        audit.registrar(inmueble_service.db, current_user.id, "inmueble_eliminado", "Inmueble",
+                        inmueble_id, valor_nuevo="no disponible", detalle="eliminación lógica")
+        return inmueble
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable, please try again later"
+        )
+
 
 @app.patch("/inmuebles/{inmueble_id}/propietario/{pro_id}", response_model=schemas.Inmueble)
 def update_inmueble_propietario(

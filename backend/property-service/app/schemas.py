@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from datetime import datetime
 from decimal import Decimal
 
@@ -43,8 +43,8 @@ class EstadoRepublica(BaseModel):
 #------------------------------------
 
 class UbicacionBase(BaseModel):
-    latitud: Decimal
-    longitud: Decimal
+    latitud: Decimal | None = None
+    longitud: Decimal | None = None
     estado_id: int
     ciudad: str
     colonia: str 
@@ -75,6 +75,18 @@ class Ubicacion(UbicacionBase):
     id: int
 
     estado_republica: EstadoRepublica
+
+    @computed_field
+    @property
+    def direccion_completa(self) -> str:
+        partes = [
+            f"{self.calle} {self.numero_exterior}".strip(),
+            self.colonia,
+            self.ciudad,
+            self.estado_republica.valor if self.estado_republica else "",
+            f"CP {self.codigo_postal}" if self.codigo_postal else "",
+        ]
+        return ", ".join(p for p in partes if p)
 
     class Config:
         from_attributes = True

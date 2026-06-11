@@ -16,6 +16,11 @@ async def error_handler(request: Request, exc: Exception):
         content={"detail": "Ocurrió un error inesperado. Inténtalo de nuevo más tarde."},
     )
 
+def require_admin(user):
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+
 # --- API Endpoints ---
 
 # user endpoints
@@ -106,6 +111,7 @@ def list_all_users(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
+        require_admin(current_user)
         return user_service.get_all_users(limit=limit, offset=offset)
     except ConnectionError as e:
         raise HTTPException(
@@ -121,6 +127,7 @@ def get_active_users(
     user_service: UserService = Depends(get_user_service),
     current_user = Depends(get_current_user)
 ):
+    require_admin(current_user)
     return user_service.get_active_users(limit, offset)
 
 
@@ -132,6 +139,7 @@ def search_users(
         current_user: schemas.User = Depends(get_current_user)
 ):
     try:
+        require_admin(current_user)
         return user_service.search_users(q)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -144,6 +152,8 @@ def get_user_by_id(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
+        if current_user.id != user_id:
+            require_admin(current_user)
         return user_service.get_user_by_id(user_id)
     except ValueError as e:
         raise HTTPException(
@@ -159,6 +169,7 @@ def get_user_by_correo(
         current_user = Depends(get_current_user)
 ):
     try:
+        require_admin(current_user)
         return user_service.get_user_by_correo(correo)
     except ValueError as e:
         raise HTTPException(
@@ -174,6 +185,7 @@ def get_user_by_telefono(
         current_user = Depends(get_current_user)
 ):
     try:
+        require_admin(current_user)
         return user_service.get_user_by_telefono(telefono)
     except ValueError as e:
         raise HTTPException(
@@ -320,6 +332,7 @@ def update_visit(
     user_service: UserService = Depends(get_user_service)
 ):
     try:
+        require_admin(current_user)
         return user_service.update_visit(visit_id, visit_update)
     except ValueError as e:
         code = status.HTTP_409_CONFLICT if "visita agendada" in str(e) else status.HTTP_400_BAD_REQUEST
@@ -328,46 +341,59 @@ def update_visit(
 
 @app.get("/visits/all", response_model=list[schemas.Visita])
 def get_all_visits(
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
+    require_admin(current_user)
     return user_service.get_all_visits()
 
 
 @app.get("/visits/id/{visit_id}", response_model=schemas.Visita)
 def get_visit_id_endpoint(
     visit_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
+    require_admin(current_user)
     return user_service.get_visit_by_id(visit_id)
 
 
 @app.get("/visits/user/{user_id}", response_model=list[schemas.Visita])
 def get_visits_by_user(
     user_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
+    if current_user.id != user_id:
+        require_admin(current_user)
     return user_service.get_visits_by_user(user_id)
 
 
 @app.get("/visits/property/{pro_id}", response_model=list[schemas.Visita])
 def get_visits_by_property(
     pro_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
+    require_admin(current_user)
     return user_service.get_visits_by_property(pro_id)
 
 
 @app.get("/visits/state/id/{state_id}", response_model=list[schemas.Visita])
 def get_visits_by_state_id(
     state_id: int,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
+    require_admin(current_user)
     return user_service.get_visit_by_estado_id(state_id)
 
 
 @app.get("/visits/state/{state}", response_model=list[schemas.Visita])
 def get_visits_by_state_name(
     state: str,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    current_user = Depends(get_current_user)
 ):
+    require_admin(current_user)
     return user_service.get_visit_by_estado(state)
