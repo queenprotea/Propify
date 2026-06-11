@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, func, Text, Numeric
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, func, Text, Float,  Numeric
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -7,78 +7,78 @@ class Inmueble(Base):
     __tablename__ = "Inmueble"
 
     id = Column(Integer, primary_key=True, index=True)
-    titulo = Column(String(150), nullable=False)
+    titulo = Column(String(100), nullable=False)
     descripcion = Column(Text)
-    precio = Column(Numeric(12, 2), nullable=False)
-    # Taxonomía como columnas planas validadas por enums en la capa de aplicación
-    tipo = Column(String(50), nullable=False)            # casa, departamento, ...
-    operacion = Column(String(20), nullable=False)       # venta | renta
-    uso = Column(String(20), nullable=False)             # residencial | comercial
-    estado = Column(String(20), nullable=False, default="disponible")  # disponible|reservado|vendido|rentado
+    precio = Column(Numeric(12,2), nullable=False)
+    tipo_id = Column(Integer, ForeignKey("TipoInmueble.id"), nullable=False)
+    estado_id = Column(Integer, ForeignKey("EstadoInmueble.id"), nullable=False)
     propietario_id = Column(Integer, nullable=True)
-    area_construccion = Column(Numeric(12, 2))
-    area_terreno = Column(Numeric(12, 2))
+    area_construccion = Column(Numeric(12,2))
+    area_terreno = Column(Numeric(12,2))
     num_recamaras = Column(Integer)
     num_banos = Column(Integer)
     num_estacionamientos = Column(Integer)
     niveles = Column(Integer)
     amueblado = Column(Boolean, default=False)
     ubicacion_id = Column(Integer, ForeignKey("Ubicacion.id"), nullable=False)
-
+    
     # Relaciones
-    ubicacion = relationship("Ubicacion", back_populates="inmueble", uselist=False)
+    ubicacion = relationship("Ubicacion", back_populates="inmueble", cascade="all, delete-orphan", uselist=False, single_parent=True)
     imagenes = relationship("Imagen", back_populates="inmueble", cascade="all, delete-orphan")
     contactos = relationship("Contacto", back_populates="inmueble", cascade="all, delete-orphan")
     historial_estado = relationship("HistorialEstado", back_populates="inmueble", cascade="all, delete-orphan")
+    estado_inmueble = relationship("EstadoInmueble", back_populates="inmuebles")
+    tipo_inmueble = relationship("TipoInmueble", back_populates="inmuebles")
     historial_propietarios = relationship("HistorialPropietario", back_populates="inmueble", cascade="all, delete-orphan")
 
 
-# Catálogo de estados de la república (para selector en el frontend; sin FK directa).
+class EstadoInmueble(Base):
+    __tablename__ = "EstadoInmueble"
+
+    id = Column(Integer, primary_key=True)
+    valor = Column(String(50), nullable=False, default='en venta')
+
+    # Relación inversa
+    inmuebles = relationship("Inmueble", back_populates="estado_inmueble") 
+    historiales = relationship("HistorialEstado", back_populates="estado_inmueble")
+
+class TipoInmueble(Base):
+    __tablename__ = "TipoInmueble"
+
+    id = Column(Integer, primary_key=True)
+    valor = Column(String(50), nullable=False)
+
+    # Relación inversa
+    inmuebles = relationship("Inmueble", back_populates="tipo_inmueble") 
+    
+
 class EstadoRepublica(Base):
     __tablename__ = "EstadoRepublica"
 
     id = Column(Integer, primary_key=True)
-    valor = Column(String(50), nullable=False, unique=True)
+    valor = Column(String(50), nullable=False)
 
-
-# ── Catálogos normalizados del inmueble (id, valor) ──
-class TipoInmuebleCat(Base):
-    __tablename__ = "TipoInmueble"
-    id = Column(Integer, primary_key=True)
-    valor = Column(String(50), nullable=False, unique=True)
-
-class OperacionInmuebleCat(Base):
-    __tablename__ = "OperacionInmueble"
-    id = Column(Integer, primary_key=True)
-    valor = Column(String(20), nullable=False, unique=True)
-
-class UsoInmuebleCat(Base):
-    __tablename__ = "UsoInmueble"
-    id = Column(Integer, primary_key=True)
-    valor = Column(String(30), nullable=False, unique=True)
-
-class EstadoInmuebleCat(Base):
-    __tablename__ = "EstadoInmueble"
-    id = Column(Integer, primary_key=True)
-    valor = Column(String(20), nullable=False, unique=True)
+    # Relación inversa
+    ubicaciones = relationship("Ubicacion", back_populates="estado_republica")
 
 
 class Ubicacion(Base):
     __tablename__ = "Ubicacion"
 
     id = Column(Integer, primary_key=True, nullable=False)
-    direccion_completa = Column(Text)          # autogenerada a partir de las partes
-    latitud = Column(Numeric(10, 6))
-    longitud = Column(Numeric(10, 6))
-    estado = Column(String(50), nullable=False)   # nombre del estado de la república
+    latitud = Column(Numeric(10,6))
+    longitud = Column(Numeric(10,6))
+    estado_id = Column(Integer, ForeignKey("EstadoRepublica.id"), nullable=False)
     ciudad = Column(String(100), nullable=False)
     colonia = Column(String(100), nullable=False)
     calle = Column(String(100), nullable=False)
     numero_exterior = Column(String(20), nullable=False)
     numero_interior = Column(String(20), nullable=True)
-    codigo_postal = Column(String(20), nullable=False)
-
+    codigo_postal = Column(String(100), nullable=False)
+    
+    # Relación inversa
     inmueble = relationship("Inmueble", back_populates="ubicacion")
+    estado_republica = relationship("EstadoRepublica", back_populates="ubicaciones")
 
 
 class HistorialEstado(Base):
@@ -86,22 +86,24 @@ class HistorialEstado(Base):
 
     id = Column(Integer, primary_key=True, nullable=False)
     fecha_inicio = Column(DateTime(timezone=True), server_default=func.now())
-    fecha_fin = Column(DateTime(timezone=True), nullable=True)
-    estado = Column(String(20), nullable=False)
+    fecha_fin = Column(DateTime(timezone=True), nullable = True)
+    estado_id = Column(Integer, ForeignKey("EstadoInmueble.id"), nullable=False)
     inmueble_id = Column(Integer, ForeignKey("Inmueble.id"), nullable=False)
 
+    # Relación inversa
     inmueble = relationship("Inmueble", back_populates="historial_estado")
-
+    estado_inmueble = relationship("EstadoInmueble", back_populates="historiales")
 
 class HistorialPropietario(Base):
     __tablename__ = "HistorialPropietario"
 
     id = Column(Integer, primary_key=True, nullable=False)
     fecha_inicio = Column(DateTime(timezone=True), server_default=func.now())
-    fecha_fin = Column(DateTime(timezone=True), nullable=True)
+    fecha_fin = Column(DateTime(timezone=True), nullable = True)
     propietario_id = Column(Integer, nullable=False)
     inmueble_id = Column(Integer, ForeignKey("Inmueble.id"), nullable=False)
 
+    # Relación inversa
     inmueble = relationship("Inmueble", back_populates="historial_propietarios")
 
 
@@ -110,10 +112,10 @@ class Imagen(Base):
 
     id = Column(Integer, primary_key=True, nullable=False)
     url_archivo = Column(Text, nullable=False)
-    # WCAG 1.1.1: texto alternativo descriptivo obligatorio para cada imagen
-    texto_alternativo = Column(String(255), nullable=False)
+    descripcion = Column(Text, nullable=False)
     inmueble_id = Column(Integer, ForeignKey("Inmueble.id"), nullable=False)
 
+    # Relación inversa
     inmueble = relationship("Inmueble", back_populates="imagenes")
 
 
@@ -127,4 +129,6 @@ class Contacto(Base):
     fecha = Column(DateTime(timezone=True), server_default=func.now())
     inmueble_id = Column(Integer, ForeignKey("Inmueble.id"), nullable=False)
 
+    # Relación inversa
     inmueble = relationship("Inmueble", back_populates="contactos")
+
