@@ -69,7 +69,10 @@ CREATE TABLE IF NOT EXISTS "TipoInmueble" (
     id    SERIAL PRIMARY KEY,
     valor VARCHAR(50) UNIQUE NOT NULL DEFAULT 'departamento'
 );
-INSERT INTO "TipoInmueble" (valor) VALUES ('departamento'), ('casa'), ('edificio'), ('mansion'), ('cabaña'), ('local comercial'), ('terreno'), ('casa en condiminio'), ('bodega comercial'), ('departamento compartido'), ('duplex'), ('huerta'), ('local de centro comercial'),('oficina'), ('quinta'), ('rancho'), ('terreno comercial'), ('terreno industrial'), ('villa')
+-- Catálogo curado (sin valores redundantes/de nicho); ampliable desde el panel de Catálogos.
+INSERT INTO "TipoInmueble" (valor) VALUES
+    ('casa'), ('casa en condominio'), ('departamento'), ('duplex'), ('edificio'),
+    ('oficina'), ('local comercial'), ('bodega comercial'), ('terreno'), ('terreno comercial')
 ON CONFLICT DO NOTHING;
 
 
@@ -141,9 +144,28 @@ CREATE TABLE IF NOT EXISTS "Pago" (
     stripe_payment_intent VARCHAR(255)          -- id de transacción de la pasarela
 );
 
---  Clausula
+-- Catálogo reutilizable de cláusulas, con numeración jerárquica (2, 2.1, 2.1.1).
+CREATE TABLE IF NOT EXISTS "ClausulaCatalogo" (
+    id      SERIAL PRIMARY KEY,
+    numero  VARCHAR(20)  NOT NULL,
+    titulo  VARCHAR(200) NOT NULL,
+    texto   TEXT         NOT NULL
+);
+INSERT INTO "ClausulaCatalogo" (numero, titulo, texto) VALUES
+    ('1',     'Objeto del contrato', 'El presente contrato tiene por objeto regular los derechos y obligaciones de las partes respecto del inmueble.'),
+    ('2',     'Obligaciones de las partes', 'Las partes se obligan a cumplir de buena fe lo aquí pactado.'),
+    ('2.1',   'Obligaciones del cliente', 'El cliente se obliga a usar el inmueble conforme a su destino y a cubrir los pagos en las fechas acordadas.'),
+    ('2.1.1', 'Conservación', 'El cliente conservará el inmueble en buen estado y cubrirá los servicios a su cargo.'),
+    ('2.1.2', 'Pagos puntuales', 'Los pagos deberán realizarse dentro de los plazos establecidos en el calendario del contrato.'),
+    ('2.2',   'Obligaciones de Propify', 'Propify garantiza la entrega del inmueble en las condiciones ofertadas.'),
+    ('3',     'Terminación', 'El incumplimiento de cualquiera de las obligaciones podrá dar lugar a la rescisión del contrato.')
+ON CONFLICT DO NOTHING;
+
+--  Clausula (cláusula concreta de un contrato; copia del catálogo)
 CREATE TABLE IF NOT EXISTS "Clausula" (
     id           SERIAL PRIMARY KEY,
+    numero       VARCHAR(20),
+    titulo       VARCHAR(200),
     descripcion  TEXT    NOT NULL,
     id_contrato  INTEGER NOT NULL REFERENCES "Contrato"(id)
 );
@@ -240,17 +262,4 @@ CREATE TABLE IF NOT EXISTS "Comprobante" (
     url_archivo  TEXT      NOT NULL,
     usuario_id   INTEGER   NOT NULL REFERENCES "Usuario"(id),
     fecha_carga  TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- ── Auditoría (bitácora de acciones relevantes) ───────────────
-CREATE TABLE IF NOT EXISTS "Auditoria" (
-    id              SERIAL PRIMARY KEY,
-    usuario_id      INTEGER,
-    accion          VARCHAR(100) NOT NULL,
-    entidad         VARCHAR(50),
-    entidad_id      INTEGER,
-    valor_anterior  TEXT,
-    valor_nuevo     TEXT,
-    detalle         TEXT,
-    fecha           TIMESTAMP    NOT NULL DEFAULT NOW()
 );

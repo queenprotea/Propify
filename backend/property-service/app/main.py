@@ -15,7 +15,7 @@ from app.services.ubicacion_service import UbicacionService, get_ubicacion_servi
 
 from app.repositories import inmueble_repository ,contacto_repository, historial_repository, imagen_repository, ubicacion_repository
 
-from app import schemas, enums, audit, models
+from app import schemas, enums, models
 import os
 import uuid
 
@@ -105,8 +105,6 @@ def create_inmueble(
     try:
         require_admin(current_user)
         creado = inmueble_service.create_inmueble(inmueble)
-        audit.registrar(inmueble_service.db, current_user.id, "inmueble_creado", "Inmueble",
-                        creado.id, valor_nuevo=creado.titulo)
         return creado
     except ValueError as e:
         raise HTTPException(
@@ -132,8 +130,6 @@ def update_inmueble(
     try:
         require_admin(current_user)
         actualizado = inmueble_service.update_inmueble(inmueble_id, inmueble_update)
-        audit.registrar(inmueble_service.db, current_user.id, "inmueble_modificado", "Inmueble",
-                        inmueble_id, valor_nuevo=actualizado.titulo)
         return actualizado
     except ValueError as e:
         raise HTTPException(
@@ -159,8 +155,6 @@ def update_inmueble_status(
     try:
         require_admin(current_user)
         inmueble = inmueble_service.update_inmueble_status(inmueble_id, status_id)
-        audit.registrar(inmueble_service.db, current_user.id, "inmueble_estado", "Inmueble",
-                        inmueble_id, valor_nuevo=inmueble.estado_inmueble.valor)
         return inmueble
     except ValueError as e:
         raise HTTPException(
@@ -187,8 +181,6 @@ def update_inmueble_status_by_valor(
         require_admin(current_user)
         estado = inmueble_service.get_estado_inmueble_by_valor(valor)
         inmueble = inmueble_service.update_inmueble_status(inmueble_id, estado.id)
-        audit.registrar(inmueble_service.db, current_user.id, "inmueble_estado", "Inmueble",
-                        inmueble_id, valor_nuevo=estado.valor)
         return inmueble
     except ValueError as e:
         raise HTTPException(
@@ -215,8 +207,6 @@ def delete_inmueble(
         require_admin(current_user)
         estado = inmueble_service.get_estado_inmueble_by_valor("no disponible")
         inmueble = inmueble_service.update_inmueble_status(inmueble_id, estado.id)
-        audit.registrar(inmueble_service.db, current_user.id, "inmueble_eliminado", "Inmueble",
-                        inmueble_id, valor_nuevo="no disponible", detalle="eliminación lógica")
         return inmueble
     except ValueError as e:
         raise HTTPException(

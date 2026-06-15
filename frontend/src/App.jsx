@@ -19,11 +19,12 @@ import PropertyForm from './pages/admin/PropertyForm'
 import UsersAdmin from './pages/admin/UsersAdmin'
 import RegisterAdmin from './pages/admin/RegisterAdmin'
 import ContractsAdmin from './pages/admin/ContractsAdmin'
+import ContractDetail from './pages/admin/ContractDetail'
 import RequestsAdmin from './pages/admin/RequestsAdmin'
 import RentsAdmin from './pages/admin/RentsAdmin'
 import SalesAdmin from './pages/admin/SalesAdmin'
-import AuditAdmin from './pages/admin/AuditAdmin'
 import CatalogsAdmin from './pages/admin/CatalogsAdmin'
+import ClausesAdmin from './pages/admin/ClausesAdmin'
 import PaymentsAdmin from './pages/admin/PaymentsAdmin'
 import VisitsAdmin from './pages/admin/VisitsAdmin'
 import ContactsAdmin from './pages/admin/ContactsAdmin'
@@ -56,10 +57,11 @@ export default function App() {
         <Route path="/admin/usuarios/nuevo-admin" element={<ProtectedRoute requireAdmin><RegisterAdmin /></ProtectedRoute>} />
         <Route path="/admin/solicitudes" element={<ProtectedRoute requireAdmin><RequestsAdmin /></ProtectedRoute>} />
         <Route path="/admin/contratos" element={<ProtectedRoute requireAdmin><ContractsAdmin /></ProtectedRoute>} />
+        <Route path="/admin/contratos/:id" element={<ProtectedRoute requireAdmin><ContractDetail /></ProtectedRoute>} />
         <Route path="/admin/rentas" element={<ProtectedRoute requireAdmin><RentsAdmin /></ProtectedRoute>} />
         <Route path="/admin/ventas" element={<ProtectedRoute requireAdmin><SalesAdmin /></ProtectedRoute>} />
-        <Route path="/admin/auditoria" element={<ProtectedRoute requireAdmin><AuditAdmin /></ProtectedRoute>} />
         <Route path="/admin/catalogos" element={<ProtectedRoute requireAdmin><CatalogsAdmin /></ProtectedRoute>} />
+        <Route path="/admin/clausulas" element={<ProtectedRoute requireAdmin><ClausesAdmin /></ProtectedRoute>} />
         <Route path="/admin/pagos" element={<ProtectedRoute requireAdmin><PaymentsAdmin /></ProtectedRoute>} />
         <Route path="/admin/visitas" element={<ProtectedRoute requireAdmin><VisitsAdmin /></ProtectedRoute>} />
         <Route path="/admin/contactos" element={<ProtectedRoute requireAdmin><ContactsAdmin /></ProtectedRoute>} />

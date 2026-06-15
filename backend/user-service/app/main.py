@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 
-from app import schemas, audit
+from app import schemas
 from app.dependencies.dependencies import get_current_user
 from app.services.user_service import UserService, get_user_service
 
@@ -32,8 +32,6 @@ def register(
 ):
     try:
         creado = user_service.register_user(user)
-        audit.registrar(user_service.db, creado.id, "usuario_creado", "Usuario", creado.id,
-                        valor_nuevo=f"{creado.nombre} ({creado.correo})", detalle="registro de comprador")
         return creado
     except ValueError as e:
         raise HTTPException(
@@ -55,8 +53,6 @@ def register_admin(
     try:
         if current_user.is_admin == True:
             creado = user_service.register_user_admin(user)
-            audit.registrar(user_service.db, current_user.id, "usuario_admin_creado", "Usuario", creado.id,
-                            valor_nuevo=f"{creado.nombre} ({creado.correo})", detalle="alta de administrador")
             return creado
         else:
             raise HTTPException(
@@ -98,7 +94,6 @@ def login(
 def verify_email(token: str, user_service: UserService = Depends(get_user_service)):
     try:
         u = user_service.verify_email(token)
-        audit.registrar(user_service.db, u.id, "correo_verificado", "Usuario", u.id)
         return {"message": "Correo verificado correctamente. Ya puedes iniciar sesión."}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -286,8 +281,6 @@ def deactivate_user(
             raise HTTPException(status_code=409,
                 detail="No se puede desactivar al último administrador activo del sistema")
         u = user_service.deactivate_user(user_id)
-        audit.registrar(user_service.db, current_user.id, "usuario_desactivado", "Usuario", user_id,
-                        valor_anterior="activo", valor_nuevo="inactivo")
         return u
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -303,8 +296,6 @@ def activate_user(
         if current_user.is_admin == False:
             raise HTTPException(403)
         u = user_service.activate_user(user_id)
-        audit.registrar(user_service.db, current_user.id, "usuario_activado", "Usuario", user_id,
-                        valor_anterior="inactivo", valor_nuevo="activo")
         return u
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

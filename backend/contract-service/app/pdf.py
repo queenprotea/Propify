@@ -18,8 +18,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 
 # La inmobiliaria actúa como ARRENDADOR / VENDEDOR (modelo agencia).
-EMPRESA = "Inmuebles a tu Alcance, S.A. de C.V."
-EMPRESA_RFC = "IAA000000XXX"
+EMPRESA = "Propify, S.A. de C.V."
+EMPRESA_RFC = "PRO000000XXX"
 EMPRESA_DOM = "Av. Principal 100, Col. Centro, Ciudad de México, C.P. 06000"
 
 
@@ -94,6 +94,23 @@ def _clausulas(st, titulo, items):
         [ListItem(Paragraph(t, st["Just"]), value=i + 1) for i, t in enumerate(items)],
         bulletType="1", leftIndent=14,
     ))
+    return flow
+
+
+def _clausulas_personalizadas(st, contrato):
+    """Cláusulas elegidas del catálogo, con sangría según su nivel jerárquico (2, 2.1, 2.1.1)."""
+    clausulas = sorted(
+        getattr(contrato, "clausulas", []) or [],
+        key=lambda c: [int(x) for x in (c.numero or "0").split(".") if x.isdigit()],
+    )
+    if not clausulas:
+        return []
+    flow = [Paragraph("CLÁUSULAS ADICIONALES", st["H"])]
+    for c in clausulas:
+        nivel = max(0, (c.numero or "").count("."))
+        estilo = ParagraphStyle(f"cl{c.id}", parent=st["Just"], leftIndent=14 + nivel * 16)
+        titulo = f"<b>{c.numero} {c.titulo}.</b> " if c.titulo else f"<b>{c.numero}.</b> "
+        flow.append(Paragraph(titulo + (c.descripcion or ""), estilo))
     return flow
 
 
@@ -194,6 +211,7 @@ def _contrato_renta(st, c, cliente, inmueble, ubicacion, pagos):
         "El inmueble se destinará únicamente al uso pactado; queda prohibido subarrendar sin autorización escrita.",
         "Queda prohibido realizar actividades ilícitas o que alteren el orden y la convivencia.",
     ])
+    e += _clausulas_personalizadas(st, c)
 
     e.append(Spacer(1, 1 * cm))
     e.append(Paragraph("Leído el presente contrato y enteradas las partes de su contenido y alcance legal, lo firman de conformidad:", st["Just"]))
@@ -270,6 +288,7 @@ def _contrato_venta(st, c, cliente, inmueble, ubicacion, pagos):
         "Será causa de rescisión el incumplimiento de cualquiera de las obligaciones esenciales aquí pactadas.",
         "En caso de rescisión imputable al comprador, el vendedor podrá retener un porcentaje de los pagos parciales como pena convencional.",
     ])
+    e += _clausulas_personalizadas(st, c)
 
     e.append(Spacer(1, 1 * cm))
     e.append(Paragraph("Leído el presente contrato y enteradas las partes de su contenido y alcance legal, lo firman de conformidad:", st["Just"]))

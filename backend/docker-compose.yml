@@ -103,6 +103,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ALGORITHM: ${ALGORITHM}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
     expose:
       - "8000"
     ports:

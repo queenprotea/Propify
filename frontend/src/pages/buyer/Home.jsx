@@ -7,7 +7,6 @@ import Field from '../../components/Field'
 import Spinner from '../../components/Spinner'
 import Alert from '../../components/Alert'
 import PropertyCard from '../../components/PropertyCard'
-import PropertyMap from '../../components/PropertyMap'
 
 const filtrosInit = {
   texto: '', tipo: '', operacion: '', uso: '',
@@ -20,7 +19,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filtros, setFiltros] = useState(filtrosInit)
-  const [verMapa, setVerMapa] = useState(false)
 
   useEffect(() => {
     let activo = true
@@ -64,11 +62,6 @@ export default function Home() {
       return true
     })
   }, [inmuebles, filtros])
-
-  const puntos = resultados.map((inm) => {
-    const ubi = inm.ubicacion
-    return { id: inm.id, titulo: inm.titulo, lat: ubi?.latitud, lng: ubi?.longitud, direccion: ubi?.direccion_completa || 'Dirección no disponible' }
-  })
 
   return (
     <>
@@ -123,12 +116,7 @@ export default function Home() {
           <div className="section" id="resultados">
             <div className="section-head">
               <h2 aria-live="polite">{resultados.length} propiedad(es) {filtros.operacion ? `en ${filtros.operacion}` : 'destacadas'}</h2>
-              <button type="button" className="btn secondary" onClick={() => setVerMapa((v) => !v)} aria-pressed={verMapa}>
-                {verMapa ? 'Ocultar mapa' : 'Ver en el mapa'}
-              </button>
             </div>
-
-            {verMapa && <div style={{ marginBottom: '1.5rem' }}><PropertyMap points={puntos} /></div>}
 
             {resultados.length === 0 ? (
               <p className="muted">No hay inmuebles que coincidan con tu búsqueda.</p>

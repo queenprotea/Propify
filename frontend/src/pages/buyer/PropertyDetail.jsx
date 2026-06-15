@@ -103,6 +103,12 @@ export default function PropertyDetail() {
 
   async function solicitarCompra() {
     setCompraMsg({ ok: '', err: '' })
+    const ok = window.confirm(
+      `Vas a enviar una SOLICITUD DE COMPRA del inmueble "${inm.titulo}" por ${formatoMoneda(inm.precio)}.\n\n` +
+      'Esto inicia un trámite formal: el administrador la revisará y, si la aprueba, ' +
+      'generará un contrato de compraventa. Todavía no es un pago.\n\n¿Deseas continuar?'
+    )
+    if (!ok) return
     try {
       await rentalsApi.create({ inmueble_id: Number(id), tipo_operacion: 'venta' })
       setCompraMsg({ ok: 'Solicitud de compra enviada. Síguela en "Mis solicitudes".', err: '' })
@@ -255,10 +261,10 @@ export default function PropertyDetail() {
         <Alert type="success">{contactoMsg.ok}</Alert>
         <form onSubmit={enviarContacto} noValidate>
           <div className="grid form-2">
-            <Field label="Tu nombre" value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} required />
-            <Field label="Tu correo" type="email" value={contacto.correo} onChange={(e) => setContacto((c) => ({ ...c, correo: e.target.value }))} required />
+            <Field label="Tu nombre" value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} required maxLength={100} />
+            <Field label="Tu correo" type="email" value={contacto.correo} onChange={(e) => setContacto((c) => ({ ...c, correo: e.target.value }))} required maxLength={100} />
           </div>
-          <Field label="Mensaje" as="textarea" value={contacto.mensaje} onChange={(e) => setContacto((c) => ({ ...c, mensaje: e.target.value }))} required />
+          <Field label="Mensaje" as="textarea" value={contacto.mensaje} onChange={(e) => setContacto((c) => ({ ...c, mensaje: e.target.value }))} required maxLength={1000} />
           <button className="btn" type="submit">Enviar mensaje</button>
         </form>
       </div>

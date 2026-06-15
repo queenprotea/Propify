@@ -1,6 +1,9 @@
-from pydantic import BaseModel, Field, computed_field
+import re
+from pydantic import BaseModel, Field, computed_field, field_validator
 from datetime import datetime
 from decimal import Decimal
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 #------------------------------------
 #         Estado inmueble 
@@ -98,18 +101,18 @@ class Ubicacion(UbicacionBase):
 
 class InmuebleBase(BaseModel):
     titulo: str = Field(min_length=5, max_length=100)
-    descripcion: str | None = None
-    precio: Decimal
+    descripcion: str | None = Field(default=None, max_length=2000)
+    precio: Decimal = Field(gt=0, le=999999999)
     tipo_id: int
     estado_id: int
-    area_construccion: Decimal | None = None
-    area_terreno: Decimal | None = None
-    num_recamaras: int | None = None
-    num_banos: int | None = None
-    num_estacionamientos: int | None = None
-    niveles: int | None = None
+    area_construccion: Decimal | None = Field(default=None, ge=0, le=1000000)
+    area_terreno: Decimal | None = Field(default=None, ge=0, le=1000000)
+    num_recamaras: int | None = Field(default=None, ge=0, le=100)
+    num_banos: int | None = Field(default=None, ge=0, le=100)
+    num_estacionamientos: int | None = Field(default=None, ge=0, le=100)
+    niveles: int | None = Field(default=None, ge=0, le=100)
     amueblado: bool = False
-    ubicacion_id: int 
+    ubicacion_id: int
 
     
 
@@ -249,11 +252,19 @@ class Imagen(ImagenBase):
 #------------------------------------
 
 class ContactoBase(BaseModel):
-    nombre: str
-    correo: str
-    mensaje: str
+    nombre: str = Field(min_length=2, max_length=100)
+    correo: str = Field(max_length=100)
+    mensaje: str = Field(min_length=1, max_length=1000)
     inmueble_id: int
-    
+
+    @field_validator("correo")
+    @classmethod
+    def _correo_valido(cls, v):
+        v = (v or "").strip().lower()
+        if not _EMAIL_RE.match(v):
+            raise ValueError("El correo electrónico no tiene un formato válido")
+        return v
+
 
 class ContactoCreate(ContactoBase):
     pass

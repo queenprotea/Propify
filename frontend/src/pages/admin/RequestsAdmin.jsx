@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { rentalsApi } from '../../api/contracts'
-import { capitalizar, formatoMoneda, tipoDe, usoDe } from '../../utils/constants'
+import { capitalizar, formatoMoneda, tipoDe, usoDe, folioSolicitud } from '../../utils/constants'
 import { useLookups } from '../../hooks/useLookups'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 import Spinner from '../../components/Spinner'
+import ClauseSelector from '../../components/ClauseSelector'
 
 const ESTADOS = ['pendiente', 'en revision', 'aprobada', 'rechazada', 'cancelada']
 
@@ -17,6 +18,7 @@ function GenerarContrato({ solicitud, precioPublicado, onDone }) {
     monto: precioPublicado || '',
     condiciones: '',
   })
+  const [clausulas, setClausulas] = useState([])
   const [msg, setMsg] = useState({ ok: '', err: '' })
   const set = (f) => (e) => setForm((s) => ({ ...s, [f]: e.target.value }))
 
@@ -27,6 +29,7 @@ function GenerarContrato({ solicitud, precioPublicado, onDone }) {
       await rentalsApi.generarContrato(solicitud.id, {
         fecha_inicio: form.fecha_inicio, fecha_fin: form.fecha_fin,
         monto: Number(form.monto), condiciones: form.condiciones || null,
+        clausula_ids: clausulas,
       })
       setMsg({ ok: 'Contrato generado; el inmueble pasó a rentado.', err: '' })
       onDone()
@@ -42,7 +45,8 @@ function GenerarContrato({ solicitud, precioPublicado, onDone }) {
         <Field label="Renta mensual" type="number" min="0" value={form.monto} onChange={set('monto')} required
                hint={precioPublicado ? `Precio publicado: ${formatoMoneda(precioPublicado)}` : undefined} />
       </div>
-      <Field label="Observaciones / condiciones especiales" as="textarea" value={form.condiciones} onChange={set('condiciones')} />
+      <Field label="Observaciones / condiciones especiales" as="textarea" value={form.condiciones} onChange={set('condiciones')} maxLength={2000} />
+      <ClauseSelector seleccionadas={clausulas} onChange={setClausulas} />
       <button className="btn" type="submit">Generar contrato</button>
       {msg.err && <span className="error-text">{msg.err}</span>}
       {msg.ok && <span style={{ color: 'var(--color-success)' }}>{msg.ok}</span>}
@@ -52,12 +56,13 @@ function GenerarContrato({ solicitud, precioPublicado, onDone }) {
 
 function GenerarContratoVenta({ solicitud, precioPublicado, onDone }) {
   const [form, setForm] = useState({ monto: precioPublicado || '', condiciones: '' })
+  const [clausulas, setClausulas] = useState([])
   const [msg, setMsg] = useState({ ok: '', err: '' })
   async function generar(e) {
     e.preventDefault()
     setMsg({ ok: '', err: '' })
     try {
-      await rentalsApi.generarContratoVenta(solicitud.id, { monto: Number(form.monto), condiciones: form.condiciones || null })
+      await rentalsApi.generarContratoVenta(solicitud.id, { monto: Number(form.monto), condiciones: form.condiciones || null, clausula_ids: clausulas })
       setMsg({ ok: 'Contrato de venta generado; el inmueble pasó a reservado.', err: '' })
       onDone()
     } catch (err) { setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudo generar el contrato.' }) }
@@ -69,7 +74,8 @@ function GenerarContratoVenta({ solicitud, precioPublicado, onDone }) {
         <Field label="Precio de venta" type="number" min="0" value={form.monto} onChange={(e) => setForm((s) => ({ ...s, monto: e.target.value }))} required
                hint={precioPublicado ? `Precio publicado: ${formatoMoneda(precioPublicado)}` : undefined} />
       </div>
-      <Field label="Observaciones / condiciones especiales" as="textarea" value={form.condiciones} onChange={(e) => setForm((s) => ({ ...s, condiciones: e.target.value }))} />
+      <Field label="Observaciones / condiciones especiales" as="textarea" value={form.condiciones} onChange={(e) => setForm((s) => ({ ...s, condiciones: e.target.value }))} maxLength={2000} />
+      <ClauseSelector seleccionadas={clausulas} onChange={setClausulas} />
       <button className="btn" type="submit">Generar contrato de venta</button>
       {msg.err && <span className="error-text">{msg.err}</span>}
       {msg.ok && <span style={{ color: 'var(--color-success)' }}>{msg.ok}</span>}
@@ -81,6 +87,7 @@ export default function RequestsAdmin() {
   const [solicitudes, setSolicitudes] = useState([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState({ ok: '', err: '' })
+  const [busqueda, setBusqueda] = useState('')
   const { users, props, propLabel } = useLookups(
     solicitudes.map((s) => s.usuario_id), solicitudes.map((s) => s.inmueble_id),
   )
@@ -101,22 +108,33 @@ export default function RequestsAdmin() {
 
   if (loading) return <Spinner />
 
+  // Filtro por folio/ID (el cliente proporciona el folio para localizar su trámite).
+  const q = busqueda.trim().toLowerCase().replace(/^sol-/, '').replace(/^0+/, '')
+  const filtradas = q
+    ? solicitudes.filter((s) => String(s.id).includes(q) || folioSolicitud(s.id).toLowerCase().includes(busqueda.trim().toLowerCase()))
+    : solicitudes
+
   return (
     <div className="stack">
       <h1>Solicitudes de renta y compra</h1>
       <Alert type="error">{msg.err}</Alert>
       <Alert type="success">{msg.ok}</Alert>
 
-      {solicitudes.length === 0 ? (
-        <p className="muted">No hay solicitudes.</p>
+      <div className="card">
+        <Field label="Buscar por folio o ID" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+               placeholder="Ej. SOL-00007 o 7" />
+      </div>
+
+      {filtradas.length === 0 ? (
+        <p className="muted">No hay solicitudes que coincidan.</p>
       ) : (
-        solicitudes.map((s) => {
+        filtradas.map((s) => {
           const cliente = users[s.usuario_id]
           const inm = props[s.inmueble_id]
           return (
             <div key={s.id} className="card stack">
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0 }}>Solicitud #{s.id} — {s.tipo_operacion === 'venta' ? 'Compra' : 'Renta'}</h3>
+                <h3 style={{ margin: 0 }}>{folioSolicitud(s.id)} — {s.tipo_operacion === 'venta' ? 'Compra' : 'Renta'}</h3>
                 <span className="badge">{capitalizar(s.estado)}</span>
               </div>
 

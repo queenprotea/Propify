@@ -31,6 +31,33 @@ class Contrato(Base):
         "Pago", back_populates="contrato",
         cascade="all, delete-orphan", order_by="Pago.numero_cuota",
     )
+    clausulas = relationship(
+        "Clausula", back_populates="contrato",
+        cascade="all, delete-orphan", order_by="Clausula.id",
+    )
+
+
+# Catálogo reutilizable de cláusulas con numeración jerárquica (2, 2.1, 2.1.1).
+class ClausulaCatalogo(Base):
+    __tablename__ = "ClausulaCatalogo"
+
+    id        = Column(Integer, primary_key=True, index=True)
+    numero    = Column(String(20), nullable=False)   # p. ej. "2", "2.1", "2.1.1"
+    titulo    = Column(String(200), nullable=False)
+    texto     = Column(Text, nullable=False)
+
+
+# Cláusula concreta de un contrato (copia del catálogo al generarlo).
+class Clausula(Base):
+    __tablename__ = "Clausula"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    numero      = Column(String(20), nullable=True)
+    titulo      = Column(String(200), nullable=True)
+    descripcion = Column(Text, nullable=False)
+    id_contrato = Column(Integer, ForeignKey("Contrato.id"), nullable=False)
+
+    contrato = relationship("Contrato", back_populates="clausulas")
 
 
 class Pago(Base):
@@ -77,17 +104,3 @@ class Comprobante(Base):
     url_archivo = Column(Text, nullable=False)
     usuario_id  = Column(Integer, nullable=False)
     fecha_carga = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-
-class Auditoria(Base):
-    __tablename__ = "Auditoria"
-
-    id         = Column(Integer, primary_key=True, index=True)
-    usuario_id = Column(Integer, nullable=True)
-    accion     = Column(String(100), nullable=False)
-    entidad    = Column(String(50), nullable=True)
-    entidad_id = Column(Integer, nullable=True)
-    valor_anterior = Column(Text, nullable=True)
-    valor_nuevo    = Column(Text, nullable=True)
-    detalle    = Column(Text, nullable=True)
-    fecha      = Column(DateTime, nullable=False, default=datetime.utcnow)

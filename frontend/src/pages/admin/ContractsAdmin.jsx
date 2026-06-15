@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { contractsApi } from '../../api/contracts'
 import { formatoMoneda, capitalizar } from '../../utils/constants'
 import { useLookups } from '../../hooks/useLookups'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 import DataTable from '../../components/DataTable'
-import ContractPanel from '../../components/ContractPanel'
 import Spinner from '../../components/Spinner'
 
 const ESTADOS = ['borrador', 'pendiente_de_firma', 'firmado', 'activo', 'finalizado', 'cancelado', 'liquidado']
@@ -16,7 +16,6 @@ export default function ContractsAdmin() {
   const [filtros, setFiltros] = useState({ estado: '', tipo: '', usuario_id: '', inmueble_id: '', fecha_desde: '', fecha_hasta: '' })
   const [contratos, setContratos] = useState([])
   const [loading, setLoading] = useState(true)
-  const [seleccionado, setSeleccionado] = useState(null)
   const [nuevo, setNuevo] = useState(nuevoInit)
   const [msg, setMsg] = useState({ ok: '', err: '' })
 
@@ -65,12 +64,8 @@ export default function ContractsAdmin() {
     { key: 'estado', header: 'Estado', render: (r) => <span className="badge">{etiqueta(r.estado)}</span> },
     { key: 'vigencia', header: 'Vigencia', render: (r) => `${r.fecha_inicio}${r.fecha_fin ? ' → ' + r.fecha_fin : ''}` },
     { key: 'acc', header: '', render: (r) => (
-        <button className="btn small secondary" type="button" onClick={() => setSeleccionado(seleccionado === r.id ? null : r.id)}>
-          {seleccionado === r.id ? 'Cerrar' : 'Ver'}
-        </button>) },
+        <Link className="btn small secondary" to={`/admin/contratos/${r.id}`}>Abrir</Link>) },
   ]
-
-  const contratoSel = contratos.find((c) => c.id === seleccionado)
 
   return (
     <div className="stack">
@@ -97,8 +92,6 @@ export default function ContractsAdmin() {
       {loading ? <Spinner /> : (
         <DataTable caption={`${contratos.length} contrato(s)`} columns={columns} rows={contratos} empty="No hay contratos." />
       )}
-
-      {contratoSel && <ContractPanel contrato={contratoSel} admin />}
 
       {/* Generar contrato manual */}
       <details className="card">

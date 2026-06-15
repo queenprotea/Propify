@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime
 from typing import List, Optional
 from decimal import Decimal
@@ -44,15 +44,26 @@ class PagoCreate(PagoBase):
     pass
 
 class PagoStripeCreate(BaseModel):
-    """Pago con tarjeta vía Stripe (PaymentIntent real)."""
+    """Pago con tarjeta vía Stripe (PaymentIntent real).
+
+    payment_method es el id generado por Stripe Elements en el navegador a
+    partir de los datos reales de la tarjeta; es obligatorio (no se simula).
+    """
     monto:          Decimal
-    payment_method: str = "pm_card_visa"   # método de prueba de Stripe
+    payment_method: str
 
     @field_validator("monto")
     @classmethod
     def _m(cls, v):
         if v <= 0:
             raise ValueError("El monto debe ser mayor que cero")
+        return v
+
+    @field_validator("payment_method")
+    @classmethod
+    def _pm(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Falta el método de pago de la tarjeta")
         return v
 
 class PagoResponse(BaseModel):
@@ -79,7 +90,7 @@ class ContratoBase(BaseModel):
     fecha_fin:    Optional[date] = None
     tipo:         TipoContrato
     monto:        Decimal
-    condiciones:  Optional[str] = None
+    condiciones:  Optional[str] = Field(default=None, max_length=2000)
     usuario_id:   int
     inmueble_id:  int
 
@@ -88,6 +99,8 @@ class ContratoBase(BaseModel):
     def monto_positivo(cls, v: Decimal) -> Decimal:
         if v <= 0:
             raise ValueError("El monto debe ser mayor que cero")
+        if v > 999999999:
+            raise ValueError("El monto excede el máximo permitido")
         return v
 
     @field_validator("fecha_fin")
@@ -97,8 +110,17 @@ class ContratoBase(BaseModel):
             raise ValueError("fecha_fin debe ser posterior a fecha_inicio")
         return v
 
+class ClausulaResponse(BaseModel):
+    id:          int
+    numero:      Optional[str] = None
+    titulo:      Optional[str] = None
+    descripcion: str
+
+    model_config = {"from_attributes": True}
+
+
 class ContratoCreate(ContratoBase):
-    pass
+    clausula_ids: List[int] = []   # cláusulas del catálogo a incluir
 
 class ContratoResponse(ContratoBase):
     id:                 int
@@ -113,6 +135,7 @@ class ContratoResponse(ContratoBase):
     fecha_descarga:     Optional[datetime] = None
     fecha_firma_subida: Optional[datetime] = None
     pagos:              List[PagoResponse] = []
+    clausulas:          List[ClausulaResponse] = []
 
     model_config = {"from_attributes": True}
 
@@ -223,6 +246,7 @@ class GenerarContratoRenta(BaseModel):
     fecha_fin:    Optional[date] = None
     monto:        Decimal   # renta mensual (confirmada o modificada)
     condiciones:  Optional[str] = None   # observaciones del administrador
+    clausula_ids: List[int] = []         # cláusulas del catálogo a incluir
 
     @field_validator("monto")
     @classmethod
@@ -241,6 +265,7 @@ class RentaManualCreate(BaseModel):
     monto:        Decimal
     condiciones:  Optional[str] = None
     estado:       EstadoContrato = EstadoContrato.activo
+    clausula_ids: List[int] = []
 
     @field_validator("monto")
     @classmethod
@@ -270,26 +295,11 @@ class ComprobanteResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-#  Auditoría
-
-class AuditoriaResponse(BaseModel):
-    id:             int
-    usuario_id:     Optional[int] = None
-    accion:         str
-    entidad:        Optional[str] = None
-    entidad_id:     Optional[int] = None
-    valor_anterior: Optional[str] = None
-    valor_nuevo:    Optional[str] = None
-    detalle:        Optional[str] = None
-    fecha:          datetime
-
-    model_config = {"from_attributes": True}
-
-
 # Generar contrato de COMPRAVENTA a partir de una solicitud de compra aprobada.
 class GenerarContratoVenta(BaseModel):
     monto:       Decimal   # precio de venta (confirmado o modificado)
     condiciones: Optional[str] = None
+    clausula_ids: List[int] = []
 
     @field_validator("monto")
     @classmethod
@@ -297,3 +307,38 @@ class GenerarContratoVenta(BaseModel):
         if v <= 0:
             raise ValueError("El precio debe ser mayor que cero")
         return v
+
+
+#  Catálogo de cláusulas
+
+class ClausulaCatalogoCreate(BaseModel):
+    numero: str
+    titulo: str
+    texto:  str
+
+    @field_validator("numero")
+    @classmethod
+    def _num(cls, v):
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("El número de cláusula es obligatorio (p. ej. 2.1)")
+        import re
+        if not re.fullmatch(r"\d+(\.\d+)*", v):
+            raise ValueError("El número debe ser jerárquico: dígitos separados por puntos (2, 2.1, 2.1.1)")
+        return v
+
+    @field_validator("titulo", "texto")
+    @classmethod
+    def _no_vacio(cls, v):
+        if not (v or "").strip():
+            raise ValueError("Campo obligatorio")
+        return v.strip()
+
+
+class ClausulaCatalogoResponse(BaseModel):
+    id:     int
+    numero: str
+    titulo: str
+    texto:  str
+
+    model_config = {"from_attributes": True}

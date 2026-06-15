@@ -56,6 +56,20 @@ def _generar_y_guardar_pdf(db: Session, contrato, auth_header: str = ""):
     return contrato
 
 
+def _exigir_contrato_pagable(contrato):
+    """Solo se aceptan pagos cuando el contrato está firmado y validado por el admin."""
+    if not contrato.url_firmado:
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede pagar: el contrato aún no ha sido firmado por las partes.",
+        )
+    if contrato.estado_documento != "aprobado":
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede pagar: la documentación firmada aún no ha sido validada por el administrador.",
+        )
+
+
 # ─────────────────────────  CONTRATOS  ─────────────────────────
 
 @app.post("/contratos", response_model=schemas.ContratoResponse,
@@ -72,8 +86,6 @@ def crear_contrato(
         _generar_y_guardar_pdf(db, contrato, request.headers.get("Authorization", ""))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando el PDF: {e}")
-    crud.registrar_auditoria(db, int(admin["sub"]), "contrato_generado", "Contrato", contrato.id,
-                             f"tipo {contrato.tipo}, inmueble {contrato.inmueble_id}")
     return contrato
 
 
@@ -160,8 +172,6 @@ async def subir_firmado(contrato_id: int, file: UploadFile = File(...),
     ruta.write_bytes(contenido)
 
     crud.registrar_firma(db, contrato, str(ruta))
-    crud.registrar_auditoria(db, int(user["sub"]), "contrato_firmado_subido", "Contrato", contrato.id,
-                             "carga de documento firmado")
     return contrato
 
 
@@ -199,6 +209,7 @@ def registrar_pago(contrato_id: int, datos: schemas.PagoCreate, request: Request
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
     require_owner_or_admin(user, contrato.usuario_id)
+    _exigir_contrato_pagable(contrato)
     ip = request.client.host if request.client else None
     uid = int(user["sub"])
     try:
@@ -207,15 +218,10 @@ def registrar_pago(contrato_id: int, datos: schemas.PagoCreate, request: Request
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
     # Evento de pago en la bitácora (historial por pago).
-    crud.registrar_auditoria(db, uid, "pago_aprobado", "Pago", pago.id,
-                             detalle=f"contrato {contrato_id}, método {datos.metodo}",
-                             valor_nuevo=f"{datos.monto} ({pago.estado})")
     # Venta liquidada → el inmueble pasa a 'vendido'.
     if contrato.tipo == "Venta" and crud.resumen_contrato(contrato).liquidado:
         try:
             property_client.set_estado_inmueble(contrato.inmueble_id, "vendido", system_token())
-            crud.registrar_auditoria(db, uid, "venta_liquidada", "Contrato", contrato.id,
-                                     detalle=f"inmueble {contrato.inmueble_id} -> vendido")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Pago registrado pero no se pudo marcar el inmueble como vendido: {e}")
     return pago
@@ -230,11 +236,10 @@ def pagar_con_stripe(contrato_id: int, datos: schemas.PagoStripeCreate, request:
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
     require_owner_or_admin(user, contrato.usuario_id)
+    _exigir_contrato_pagable(contrato)
     uid = int(user["sub"])
     ip = request.client.host if request.client else None
 
-    crud.registrar_auditoria(db, uid, "pago_generado", "Contrato", contrato_id,
-                             detalle=f"Stripe, monto {datos.monto}")
     # Crear y confirmar el PaymentIntent REAL contra Stripe (no se simula).
     try:
         intent = stripe.PaymentIntent.create(
@@ -246,16 +251,11 @@ def pagar_con_stripe(contrato_id: int, datos: schemas.PagoStripeCreate, request:
             metadata={"contrato_id": str(contrato_id), "usuario_id": str(uid)},
         )
     except stripe.error.CardError as e:
-        crud.registrar_auditoria(db, uid, "pago_rechazado", "Contrato", contrato_id,
-                                 detalle=f"Stripe: {e.user_message or str(e)}")
         raise HTTPException(status_code=402, detail=f"Tarjeta rechazada: {e.user_message or 'verifica los datos'}")
     except stripe.error.StripeError as e:
-        crud.registrar_auditoria(db, uid, "pago_error", "Contrato", contrato_id, detalle=f"Stripe: {str(e)}")
         raise HTTPException(status_code=502, detail="No se pudo procesar el pago con Stripe. Intenta más tarde.")
 
     if intent.status != "succeeded":
-        crud.registrar_auditoria(db, uid, "pago_rechazado", "Contrato", contrato_id,
-                                 detalle=f"Stripe estado: {intent.status}")
         raise HTTPException(status_code=402, detail=f"El pago no se completó (estado: {intent.status}).")
 
     # Pago exitoso → registrar con el identificador de transacción de Stripe.
@@ -265,27 +265,12 @@ def pagar_con_stripe(contrato_id: int, datos: schemas.PagoStripeCreate, request:
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    crud.registrar_auditoria(db, uid, "pago_aprobado", "Pago", pago.id,
-                             detalle=f"Stripe intent {intent.id}", valor_nuevo=f"{datos.monto} pagado")
     if contrato.tipo == "Venta" and crud.resumen_contrato(contrato).liquidado:
         try:
             property_client.set_estado_inmueble(contrato.inmueble_id, "vendido", system_token())
-            crud.registrar_auditoria(db, uid, "venta_liquidada", "Contrato", contrato.id,
-                                     detalle=f"inmueble {contrato.inmueble_id} -> vendido")
         except Exception:
             pass
     return pago
-
-
-@app.get("/pagos/{pago_id}/eventos", response_model=List[schemas.AuditoriaResponse],
-         summary="Historial de eventos de un pago")
-def eventos_pago(pago_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    pago = db.query(models.Pago).filter(models.Pago.id == pago_id).first()
-    if not pago:
-        raise HTTPException(status_code=404, detail="Pago no encontrado")
-    contrato = crud.obtener_contrato(db, pago.contrato_id)
-    require_owner_or_admin(user, contrato.usuario_id)
-    return crud.auditoria_por_entidad(db, "Pago", pago_id)
 
 
 @app.get("/contratos/{contrato_id}/resumen", response_model=schemas.ResumenContrato,
@@ -299,17 +284,6 @@ def resumen(contrato_id: int, db: Session = Depends(get_db),
     return crud.resumen_contrato(contrato)
 
 
-@app.get("/contratos/{contrato_id}/historial", response_model=List[schemas.AuditoriaResponse],
-         summary="Historial de cambios del contrato")
-def historial_contrato(contrato_id: int, db: Session = Depends(get_db),
-                       user=Depends(get_current_user)):
-    contrato = crud.obtener_contrato(db, contrato_id)
-    if not contrato:
-        raise HTTPException(status_code=404, detail="Contrato no encontrado")
-    require_owner_or_admin(user, contrato.usuario_id)
-    return crud.auditoria_por_entidad(db, "Contrato", contrato_id)
-
-
 @app.patch("/contratos/{contrato_id}/estado", response_model=schemas.ContratoResponse,
            summary="Cambiar el estado del contrato (administrador)")
 def cambiar_estado_contrato(contrato_id: int, datos: schemas.ContratoEstadoUpdate,
@@ -319,8 +293,6 @@ def cambiar_estado_contrato(contrato_id: int, datos: schemas.ContratoEstadoUpdat
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
     anterior = contrato.estado
     crud.cambiar_estado_contrato(db, contrato, datos.estado.value)
-    crud.registrar_auditoria(db, int(admin["sub"]), "contrato_estado", "Contrato", contrato_id,
-                             detalle="cambio de estado", valor_anterior=anterior, valor_nuevo=datos.estado.value)
     return contrato
 
 
@@ -336,8 +308,6 @@ def validar_documento(contrato_id: int, datos: schemas.DocumentoValidacion,
     if not datos.aprobado and not (datos.motivo or "").strip():
         raise HTTPException(status_code=422, detail="Indica el motivo del rechazo")
     crud.validar_documento(db, contrato, datos.aprobado, datos.motivo)
-    crud.registrar_auditoria(db, int(admin["sub"]), "documento_validado", "Contrato", contrato_id,
-                             "aprobado" if datos.aprobado else f"rechazado: {datos.motivo}")
     return contrato
 
 
@@ -367,8 +337,6 @@ def crear_solicitud(datos: schemas.SolicitudCreate, db: Session = Depends(get_db
                             detail=f"El inmueble no está disponible para {tipo} (estado: {estado_actual})")
 
     sol = crud.crear_solicitud(db, int(user["sub"]), datos)
-    crud.registrar_auditoria(db, int(user["sub"]), f"solicitud_{tipo}_creada", "SolicitudRenta", sol.id,
-                             f"inmueble {datos.inmueble_id}")
     return sol
 
 
@@ -403,8 +371,6 @@ def cambiar_estado_solicitud(solicitud_id: int, datos: schemas.SolicitudEstadoUp
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
     crud.cambiar_estado_solicitud(db, sol, datos.estado.value)
-    crud.registrar_auditoria(db, int(admin["sub"]), "solicitud_estado", "SolicitudRenta", sol.id,
-                             f"-> {datos.estado.value}")
     return sol
 
 
@@ -419,7 +385,6 @@ def cancelar_solicitud(solicitud_id: int, db: Session = Depends(get_db),
     if sol.estado not in ("pendiente", "en revision"):
         raise HTTPException(status_code=409, detail="La solicitud ya no se puede cancelar")
     crud.cambiar_estado_solicitud(db, sol, "cancelada")
-    crud.registrar_auditoria(db, int(user["sub"]), "solicitud_cancelada", "SolicitudRenta", sol.id)
     return sol
 
 
@@ -453,6 +418,7 @@ def generar_contrato_desde_solicitud(solicitud_id: int, datos: schemas.GenerarCo
         tipo=schemas.TipoContrato.renta, monto=datos.monto,
         condiciones=datos.condiciones,
         usuario_id=sol.usuario_id, inmueble_id=sol.inmueble_id,
+        clausula_ids=datos.clausula_ids,
     ))
     _generar_y_guardar_pdf(db, contrato, request.headers.get("Authorization", ""))
 
@@ -465,8 +431,6 @@ def generar_contrato_desde_solicitud(solicitud_id: int, datos: schemas.GenerarCo
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Contrato creado pero no se pudo actualizar el inmueble: {e}")
 
-    crud.registrar_auditoria(db, int(admin["sub"]), "contrato_desde_solicitud", "Contrato", contrato.id,
-                             f"solicitud {sol.id}, inmueble {sol.inmueble_id} -> rentado")
     return contrato
 
 
@@ -490,6 +454,7 @@ def generar_contrato_venta_desde_solicitud(solicitud_id: int, datos: schemas.Gen
         fecha_inicio=date.today(), fecha_fin=None,
         tipo=schemas.TipoContrato.venta, monto=datos.monto, condiciones=datos.condiciones,
         usuario_id=sol.usuario_id, inmueble_id=sol.inmueble_id,
+        clausula_ids=datos.clausula_ids,
     ))
     _generar_y_guardar_pdf(db, contrato, request.headers.get("Authorization", ""))
 
@@ -502,8 +467,6 @@ def generar_contrato_venta_desde_solicitud(solicitud_id: int, datos: schemas.Gen
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Contrato creado pero no se pudo actualizar el inmueble: {e}")
 
-    crud.registrar_auditoria(db, int(admin["sub"]), "contrato_venta_desde_solicitud", "Contrato", contrato.id,
-                             f"solicitud {sol.id}, inmueble {sol.inmueble_id} -> reservado")
     return contrato
 
 
@@ -529,8 +492,6 @@ async def subir_comprobante(contrato_id: int, file: UploadFile = File(...),
     ruta.write_bytes(contenido)
 
     comp = crud.crear_comprobante(db, contrato_id, int(user["sub"]), str(ruta))
-    crud.registrar_auditoria(db, int(user["sub"]), "comprobante_subido", "Comprobante", comp.id,
-                             f"contrato {contrato_id}")
     return comp
 
 
@@ -557,14 +518,6 @@ def descargar_comprobante(comprobante_id: int, db: Session = Depends(get_db),
     return FileResponse(comp.url_archivo, filename=f"comprobante_{comp.id}{Path(comp.url_archivo).suffix}")
 
 
-# ─────────────────────────  AUDITORÍA  ─────────────────────────
-
-@app.get("/auditoria", response_model=List[schemas.AuditoriaResponse],
-         summary="Bitácora de acciones (administrador)")
-def listar_auditoria(db: Session = Depends(get_db), admin=Depends(get_current_admin)):
-    return crud.listar_auditoria(db)
-
-
 # ─────────────────────────  REGISTRO MANUAL DE RENTA (ADMIN)  ─────────────────────────
 
 @app.post("/rentas/manual", response_model=schemas.ContratoResponse,
@@ -584,6 +537,7 @@ def registrar_renta_manual(datos: schemas.RentaManualCreate, request: Request,
         fecha_inicio=datos.fecha_inicio, fecha_fin=datos.fecha_fin,
         tipo=schemas.TipoContrato.renta, monto=datos.monto,
         condiciones=datos.condiciones, usuario_id=datos.usuario_id, inmueble_id=datos.inmueble_id,
+        clausula_ids=datos.clausula_ids,
     ))
     if datos.estado and datos.estado.value != "activo":
         crud.cambiar_estado_contrato(db, contrato, datos.estado.value)
@@ -595,8 +549,6 @@ def registrar_renta_manual(datos: schemas.RentaManualCreate, request: Request,
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Contrato creado pero no se pudo actualizar el inmueble: {e}")
 
-    crud.registrar_auditoria(db, int(admin["sub"]), "renta_manual", "Contrato", contrato.id,
-                             f"cliente {datos.usuario_id}, inmueble {datos.inmueble_id} -> rentado")
     return contrato
 
 
@@ -622,8 +574,6 @@ def renovar_contrato(contrato_id: int, datos: schemas.RenovarContrato, request: 
     ), contrato_padre_id=anterior.id)
     _generar_y_guardar_pdf(db, nuevo, request.headers.get("Authorization", ""))
     crud.cambiar_estado_contrato(db, anterior, "finalizado")  # el anterior se cierra
-    crud.registrar_auditoria(db, int(admin["sub"]), "renta_renovada", "Contrato", nuevo.id,
-                             f"renueva contrato {anterior.id}")
     return nuevo
 
 
@@ -653,9 +603,39 @@ def _cerrar_renta(db, contrato_id, nuevo_estado, request, admin):
                                              request.headers.get("Authorization", ""))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Estado actualizado pero no se pudo liberar el inmueble: {e}")
-    crud.registrar_auditoria(db, int(admin["sub"]), f"renta_{nuevo_estado}", "Contrato", contrato_id,
-                             f"inmueble {contrato.inmueble_id} -> {liberado}")
     return contrato
+
+
+# ─────────────────────────  CATÁLOGO DE CLÁUSULAS  ─────────────────────────
+
+@app.get("/clausulas-catalogo", response_model=List[schemas.ClausulaCatalogoResponse],
+         summary="Listar el catálogo de cláusulas (jerárquico)")
+def listar_clausulas_catalogo(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return crud.listar_clausulas_catalogo(db)
+
+
+@app.post("/clausulas-catalogo", response_model=schemas.ClausulaCatalogoResponse,
+          status_code=status.HTTP_201_CREATED,
+          summary="Crear una cláusula en el catálogo (administrador)")
+def crear_clausula_catalogo(datos: schemas.ClausulaCatalogoCreate,
+                            db: Session = Depends(get_db), admin=Depends(get_current_admin)):
+    try:
+        return crud.crear_clausula_catalogo(db, datos)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.delete("/clausulas-catalogo/{clausula_id}", summary="Eliminar una cláusula del catálogo (administrador)")
+def eliminar_clausula_catalogo(clausula_id: int, db: Session = Depends(get_db),
+                               admin=Depends(get_current_admin)):
+    if not crud.eliminar_clausula_catalogo(db, clausula_id):
+        raise HTTPException(status_code=404, detail="Cláusula no encontrada")
+    return {"message": "Cláusula eliminada"}
+
+
+@app.get("/stripe-config", summary="Clave publicable de Stripe para el formulario de tarjeta")
+def stripe_config():
+    return {"publishable_key": os.getenv("STRIPE_PUBLISHABLE_KEY", "")}
 
 
 @app.get("/health")

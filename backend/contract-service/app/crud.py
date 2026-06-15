@@ -10,7 +10,9 @@ import models, schemas
 #  CONTRATOS
 
 def crear_contrato(db: Session, datos: schemas.ContratoCreate, contrato_padre_id=None) -> models.Contrato:
-    contrato = models.Contrato(**datos.model_dump(), contrato_padre_id=contrato_padre_id)
+    campos = datos.model_dump()
+    clausula_ids = campos.pop("clausula_ids", []) or []
+    contrato = models.Contrato(**campos, contrato_padre_id=contrato_padre_id)
     db.add(contrato)
     db.commit()
     db.refresh(contrato)
@@ -20,11 +22,59 @@ def crear_contrato(db: Session, datos: schemas.ContratoCreate, contrato_padre_id
     contrato.folio = f"CTR-{anio}-{contrato.id:05d}"
     db.commit()
 
+    # Copiar al contrato las cláusulas elegidas del catálogo.
+    copiar_clausulas_a_contrato(db, contrato, clausula_ids)
+
     # Para contratos de RENTA se genera el calendario mensual de pagos.
     if contrato.tipo == "Renta":
         _generar_calendario_renta(db, contrato)
     db.refresh(contrato)
     return contrato
+
+
+# ─────────────────────────  CATÁLOGO DE CLÁUSULAS  ─────────────────────────
+
+def _orden_numero(numero: str):
+    """Ordena '2.10' después de '2.2' tratando cada segmento como entero."""
+    try:
+        return [int(x) for x in (numero or "").split(".") if x != ""]
+    except ValueError:
+        return [0]
+
+
+def listar_clausulas_catalogo(db: Session):
+    filas = db.query(models.ClausulaCatalogo).all()
+    return sorted(filas, key=lambda c: _orden_numero(c.numero))
+
+
+def crear_clausula_catalogo(db: Session, datos: schemas.ClausulaCatalogoCreate):
+    existe = db.query(models.ClausulaCatalogo).filter(
+        models.ClausulaCatalogo.numero == datos.numero).first()
+    if existe:
+        raise ValueError(f"Ya existe una cláusula con el número {datos.numero}")
+    fila = models.ClausulaCatalogo(numero=datos.numero, titulo=datos.titulo, texto=datos.texto)
+    db.add(fila)
+    db.commit()
+    db.refresh(fila)
+    return fila
+
+
+def eliminar_clausula_catalogo(db: Session, clausula_id: int) -> bool:
+    fila = db.query(models.ClausulaCatalogo).filter(models.ClausulaCatalogo.id == clausula_id).first()
+    if not fila:
+        return False
+    db.delete(fila)
+    db.commit()
+    return True
+
+
+def copiar_clausulas_a_contrato(db: Session, contrato: models.Contrato, ids):
+    if not ids:
+        return
+    filas = db.query(models.ClausulaCatalogo).filter(models.ClausulaCatalogo.id.in_(ids)).all()
+    for c in sorted(filas, key=lambda x: _orden_numero(x.numero)):
+        db.add(models.Clausula(numero=c.numero, titulo=c.titulo, descripcion=c.texto, id_contrato=contrato.id))
+    db.commit()
 
 
 def listar_contratos(db: Session, estado=None, tipo=None, usuario_id=None,
@@ -65,14 +115,6 @@ def validar_documento(db: Session, contrato: models.Contrato, aprobado: bool, mo
     db.commit()
     db.refresh(contrato)
     return contrato
-
-
-def auditoria_por_entidad(db: Session, entidad: str, entidad_id: int):
-    return (
-        db.query(models.Auditoria)
-        .filter(models.Auditoria.entidad == entidad, models.Auditoria.entidad_id == entidad_id)
-        .order_by(models.Auditoria.fecha.desc()).all()
-    )
 
 
 def _generar_calendario_renta(db: Session, contrato: models.Contrato) -> None:
@@ -244,23 +286,6 @@ def registrar_pago(db: Session, contrato: models.Contrato, datos: schemas.PagoCr
         db.commit()
 
     return pago
-
-
-# ─────────────────────────  AUDITORÍA  ─────────────────────────
-
-def registrar_auditoria(db: Session, usuario_id, accion, entidad=None, entidad_id=None,
-                        detalle=None, valor_anterior=None, valor_nuevo=None):
-    reg = models.Auditoria(
-        usuario_id=usuario_id, accion=accion, entidad=entidad, entidad_id=entidad_id,
-        detalle=detalle, valor_anterior=valor_anterior, valor_nuevo=valor_nuevo,
-    )
-    db.add(reg)
-    db.commit()
-    return reg
-
-
-def listar_auditoria(db: Session, limit: int = 200):
-    return db.query(models.Auditoria).order_by(models.Auditoria.fecha.desc()).limit(limit).all()
 
 
 # ─────────────────────────  SOLICITUDES DE RENTA  ─────────────────────────

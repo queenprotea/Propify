@@ -5,6 +5,7 @@ import { useLookups } from '../hooks/useLookups'
 import Field from './Field'
 import Alert from './Alert'
 import DataTable from './DataTable'
+import StripeCardForm from './StripeCardForm'
 
 const ESTADOS_CONTRATO = ['borrador', 'pendiente_de_firma', 'firmado', 'activo', 'finalizado', 'cancelado', 'liquidado']
 const etiquetaEstado = (e) => capitalizar((e || '').replace(/_/g, ' '))
@@ -14,8 +15,6 @@ export default function ContractPanel({ contrato, admin = false }) {
   const [pagos, setPagos] = useState([])
   const [resumen, setResumen] = useState(null)
   const [comprobantes, setComprobantes] = useState([])
-  const [historial, setHistorial] = useState([])
-  const [verHistorial, setVerHistorial] = useState(false)
   const [datos, setDatos] = useState(contrato)
   const [metodo, setMetodo] = useState('transferencia')
   const [montoVenta, setMontoVenta] = useState('')
@@ -25,6 +24,8 @@ export default function ContractPanel({ contrato, admin = false }) {
   const [msg, setMsg] = useState({ ok: '', err: '' })
 
   const esRenta = datos.tipo === 'Renta'
+  // Solo se puede pagar cuando el contrato está firmado y validado por el admin.
+  const puedePagar = Boolean(datos.url_firmado) && datos.estado_documento === 'aprobado'
   const { userLabel, propLabel } = useLookups([contrato.usuario_id], [contrato.inmueble_id])
 
   async function refrescar() {
@@ -81,16 +82,15 @@ export default function ContractPanel({ contrato, admin = false }) {
     } catch (err) { setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudo registrar el pago.' }) }
   }
 
-  async function pagarStripe() {
+  // Recibe el payment_method generado por Stripe Elements (datos reales de tarjeta).
+  async function pagarStripe(paymentMethodId) {
     setMsg({ ok: '', err: '' })
     const monto = esRenta ? Number(datos.monto) : Number(montoVenta)
-    if (!monto || monto <= 0) { setMsg({ ok: '', err: 'Indica el monto a pagar.' }); return }
-    try {
-      const p = await contractsApi.pagarStripe(contrato.id, { monto })
-      setMontoVenta('')
-      setMsg({ ok: `Pago con tarjeta procesado (transacción ${p.stripe_payment_intent}).`, err: '' })
-      refrescar()
-    } catch (err) { setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudo procesar el pago con tarjeta.' }) }
+    if (!monto || monto <= 0) { setMsg({ ok: '', err: 'Indica el monto a pagar.' }); throw new Error('monto') }
+    const p = await contractsApi.pagarStripe(contrato.id, { monto, payment_method: paymentMethodId })
+    setMontoVenta('')
+    setMsg({ ok: `Pago con tarjeta procesado (transacción ${p.stripe_payment_intent}).`, err: '' })
+    refrescar()
   }
 
   // --- Acciones de administrador ---
@@ -106,11 +106,6 @@ export default function ContractPanel({ contrato, admin = false }) {
       setMotivoRechazo(''); setMsg({ ok: aprobado ? 'Documento aprobado.' : 'Documento rechazado.', err: '' }); refrescar()
     } catch (err) { setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudo validar el documento.' }) }
   }
-  async function toggleHistorial() {
-    if (!verHistorial) { try { setHistorial(await contractsApi.historial(contrato.id)) } catch { /* */ } }
-    setVerHistorial((v) => !v)
-  }
-
   const colsRenta = [
     { key: 'numero_cuota', header: 'Cuota' },
     { key: 'fecha_vencimiento', header: 'Vence' },
@@ -123,7 +118,6 @@ export default function ContractPanel({ contrato, admin = false }) {
     { key: 'metodo', header: 'Método', render: (r) => r.metodo || '—' },
     { key: 'estado', header: 'Estado', render: (r) => capitalizar(r.estado) },
     { key: 'tx', header: 'Transacción', render: (r) => r.stripe_payment_intent || '—' },
-    { key: 'ip', header: 'IP', render: (r) => r.ip || '—' },
   ]
 
   return (
@@ -148,18 +142,7 @@ export default function ContractPanel({ contrato, admin = false }) {
       <div className="row">
         <button className="btn small" type="button" onClick={descargarPdf}>Descargar contrato (PDF)</button>
         {datos.url_firmado && <button className="btn small secondary" type="button" onClick={descargarFirmado}>Descargar firmado</button>}
-        <button className="btn small secondary" type="button" onClick={toggleHistorial} aria-expanded={verHistorial}>
-          {verHistorial ? 'Ocultar historial' : 'Ver historial de cambios'}
-        </button>
       </div>
-
-      {verHistorial && (
-        <ul className="muted">
-          {historial.length === 0 ? <li>Sin registros.</li> : historial.map((h) => (
-            <li key={h.id}>{new Date(h.fecha).toLocaleString('es-MX')} — {h.accion}{h.detalle ? `: ${h.detalle}` : ''}</li>
-          ))}
-        </ul>
-      )}
 
       {/* Acciones de administrador: estado y validación de documentación */}
       {admin && (
@@ -211,15 +194,32 @@ export default function ContractPanel({ contrato, admin = false }) {
         columns={esRenta ? colsRenta : colsVenta} rows={pagos} empty="Sin pagos registrados."
       />
 
-      {datos.estado === 'activo' && (
-        <form onSubmit={pagar} className="toolbar" aria-label="Registrar pago">
-          {!esRenta && (
-            <Field label="Monto a pagar (MXN)" type="number" min="0" value={montoVenta} onChange={(e) => setMontoVenta(e.target.value)} required />
-          )}
-          <Field label="Método" as="select" options={METODOS_PAGO} value={metodo} onChange={(e) => setMetodo(e.target.value)} required />
-          <button className="btn" type="submit">{esRenta ? 'Pagar mensualidad' : 'Registrar pago'}</button>
-          <button className="btn secondary" type="button" onClick={pagarStripe}>💳 Pagar con tarjeta (Stripe)</button>
-        </form>
+      {/* Los pagos solo se habilitan con el contrato firmado y validado. */}
+      {datos.estado === 'activo' && !puedePagar && (
+        <Alert type="info">
+          Los pagos se habilitarán cuando el contrato esté firmado por las partes y la
+          documentación haya sido validada por el administrador.
+        </Alert>
+      )}
+
+      {datos.estado === 'activo' && puedePagar && (
+        <div className="stack">
+          <form onSubmit={pagar} className="toolbar" aria-label="Registrar pago">
+            {!esRenta && (
+              <Field label="Monto a pagar (MXN)" type="number" min="0" step="0.01" value={montoVenta} onChange={(e) => setMontoVenta(e.target.value)} required />
+            )}
+            <Field label="Método" as="select" options={METODOS_PAGO} value={metodo} onChange={(e) => setMetodo(e.target.value)} required />
+            <button className="btn" type="submit">{esRenta ? 'Pagar mensualidad' : 'Registrar pago'}</button>
+          </form>
+
+          <div className="card" style={{ background: '#f7fbff' }}>
+            <p style={{ margin: '0 0 0.5rem' }}><strong>Pago con tarjeta (Stripe)</strong></p>
+            {!esRenta && (
+              <Field label="Monto a pagar (MXN)" type="number" min="0" step="0.01" value={montoVenta} onChange={(e) => setMontoVenta(e.target.value)} required />
+            )}
+            <StripeCardForm monto={esRenta ? datos.monto : montoVenta} onPay={pagarStripe} />
+          </div>
+        </div>
       )}
 
       <div className="stack">

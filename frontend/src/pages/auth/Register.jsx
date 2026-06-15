@@ -58,15 +58,15 @@ export default function Register() {
         <Alert type="error">{error}</Alert>
         <Alert type="success">{ok}</Alert>
         <form onSubmit={onSubmit} noValidate>
-          <Field label="Nombre completo" value={form.nombre} onChange={set('nombre')} required autoComplete="name" />
-          <Field label="Correo electrónico" type="email" value={form.correo} onChange={set('correo')} required autoComplete="email" />
+          <Field label="Nombre completo" value={form.nombre} onChange={set('nombre')} required autoComplete="name" maxLength={100} />
+          <Field label="Correo electrónico" type="email" value={form.correo} onChange={set('correo')} required autoComplete="email" maxLength={100} />
           <Field label="Teléfono" type="tel" inputMode="numeric" maxLength={10}
                  value={form.telefono}
                  onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value.replace(/\D/g, '') }))}
                  autoComplete="tel" hint="10 dígitos (opcional)." />
           <Field
             label="Contraseña" type="password" value={form.password} onChange={set('password')}
-            required autoComplete="new-password"
+            required autoComplete="new-password" maxLength={30}
             hint="Mínimo 8 caracteres, con mayúscula, minúscula y número."
           />
           <button className="btn" type="submit" disabled={busy}>{busy ? 'Creando…' : 'Crear cuenta'}</button>

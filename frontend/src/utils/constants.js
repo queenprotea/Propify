@@ -31,6 +31,11 @@ export const ESTADOS_REPUBLICA = [
 
 export const METODOS_PAGO = ['stripe', 'transferencia', 'efectivo']
 
+// Folio legible de una solicitud (el cliente puede dárselo al admin para localizarla).
+export function folioSolicitud(id) {
+  return `SOL-${String(id).padStart(5, '0')}`
+}
+
 export function capitalizar(s) {
   if (!s) return ''
   return s.charAt(0).toUpperCase() + s.slice(1)

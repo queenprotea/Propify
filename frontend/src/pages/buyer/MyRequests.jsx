@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { rentalsApi } from '../../api/contracts'
 import { useAuth } from '../../context/AuthContext'
-import { capitalizar } from '../../utils/constants'
+import { capitalizar, folioSolicitud } from '../../utils/constants'
+import { useLookups } from '../../hooks/useLookups'
 import DataTable from '../../components/DataTable'
 import Alert from '../../components/Alert'
 import Spinner from '../../components/Spinner'
@@ -12,6 +13,7 @@ export default function MyRequests() {
   const [solicitudes, setSolicitudes] = useState([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState({ ok: '', err: '' })
+  const { propLabel } = useLookups([], solicitudes.map((s) => s.inmueble_id))
 
   async function cargar() {
     setLoading(true)
@@ -31,8 +33,9 @@ export default function MyRequests() {
   }
 
   const columns = [
-    { key: 'id', header: '#' },
-    { key: 'inmueble_id', header: 'Inmueble', render: (r) => <Link to={`/inmueble/${r.inmueble_id}`}>#{r.inmueble_id}</Link> },
+    { key: 'id', header: 'Folio', render: (r) => <strong>{folioSolicitud(r.id)}</strong> },
+    { key: 'tipo_operacion', header: 'Tipo', render: (r) => capitalizar(r.tipo_operacion || 'renta') },
+    { key: 'inmueble_id', header: 'Inmueble', render: (r) => <Link to={`/inmueble/${r.inmueble_id}`}>{propLabel(r.inmueble_id)}</Link> },
     { key: 'fecha_solicitud', header: 'Fecha', render: (r) => new Date(r.fecha_solicitud).toLocaleDateString('es-MX') },
     { key: 'estado', header: 'Estado', render: (r) => capitalizar(r.estado) },
     { key: 'contrato_id', header: 'Contrato', render: (r) => r.contrato_id

@@ -11,7 +11,6 @@ export const contractsApi = {
   listAll: (params = {}) => client.get('/contracts/contratos', { params }).then((r) => r.data),
   setEstado: (id, estado) => client.patch(`/contracts/contratos/${id}/estado`, { estado }).then((r) => r.data),
   validarDocumento: (id, data) => client.post(`/contracts/contratos/${id}/documento`, data).then((r) => r.data),
-  historial: (id) => client.get(`/contracts/contratos/${id}/historial`).then((r) => r.data),
   renovar: (id, data) => client.post(`/contracts/contratos/${id}/renovar`, data).then((r) => r.data),
   rentaManual: (data) => client.post('/contracts/rentas/manual', data).then((r) => r.data),
   finalizar: (id) => client.patch(`/contracts/contratos/${id}/finalizar`).then((r) => r.data),
@@ -23,7 +22,6 @@ export const contractsApi = {
     client.post(`/contracts/contratos/${contratoId}/pagos`, data).then((r) => r.data),
   pagarStripe: (contratoId, data) =>
     client.post(`/contracts/contratos/${contratoId}/pagos/stripe`, data).then((r) => r.data),
-  pagoEventos: (pagoId) => client.get(`/contracts/pagos/${pagoId}/eventos`).then((r) => r.data),
   resumen: (id) => client.get(`/contracts/contratos/${id}/resumen`).then((r) => r.data),
 
   // PDF original (blob, con JWT)
@@ -69,8 +67,11 @@ export const rentalsApi = {
     client.post(`/contracts/solicitudes/${id}/contrato-venta`, data).then((r) => r.data),
 }
 
-export const auditApi = {
-  list: () => client.get('/contracts/auditoria').then((r) => r.data),
+// Catálogo de cláusulas (jerárquicas) para contratos
+export const clausesApi = {
+  list: () => client.get('/contracts/clausulas-catalogo').then((r) => r.data),
+  create: (data) => client.post('/contracts/clausulas-catalogo', data).then((r) => r.data),
+  remove: (id) => client.delete(`/contracts/clausulas-catalogo/${id}`).then((r) => r.data),
 }
 
 // Descarga un blob en el navegador.

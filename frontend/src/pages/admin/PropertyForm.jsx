@@ -162,18 +162,18 @@ export default function PropertyForm() {
       <form onSubmit={onSubmit} noValidate className="stack">
         <fieldset className="card">
           <legend><h2 style={{ display: 'inline' }}>Datos del inmueble</h2></legend>
-          <Field label="Título" value={inm.titulo} onChange={setI('titulo')} required hint="Mínimo 5 caracteres." />
-          <Field label="Descripción" as="textarea" value={inm.descripcion} onChange={setI('descripcion')} />
+          <Field label="Título" value={inm.titulo} onChange={setI('titulo')} required minLength={5} maxLength={100} hint="Entre 5 y 100 caracteres." />
+          <Field label="Descripción" as="textarea" value={inm.descripcion} onChange={setI('descripcion')} maxLength={2000} hint="Máximo 2000 caracteres." />
           <div className="grid form-2">
-            <Field label="Precio (MXN)" type="number" min="0" value={inm.precio} onChange={setI('precio')} required />
+            <Field label="Precio (MXN)" type="number" min="1" max="999999999" step="0.01" value={inm.precio} onChange={setI('precio')} required />
             <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t.id, label: capitalizar(t.valor) }))} value={inm.tipo_id} onChange={setI('tipo_id')} required />
             <Field label="Estado" as="select" options={cat.estados.map((t) => ({ value: t.id, label: capitalizar(t.valor) }))} value={inm.estado_id} onChange={setI('estado_id')} required hint="'En venta' o 'en renta' define la operación ofertada." />
-            <Field label="Recámaras" type="number" min="0" value={inm.num_recamaras} onChange={setI('num_recamaras')} />
-            <Field label="Baños" type="number" min="0" value={inm.num_banos} onChange={setI('num_banos')} />
-            <Field label="Estacionamientos" type="number" min="0" value={inm.num_estacionamientos} onChange={setI('num_estacionamientos')} />
-            <Field label="Niveles" type="number" min="0" value={inm.niveles} onChange={setI('niveles')} />
-            <Field label="Área construcción (m²)" type="number" min="0" value={inm.area_construccion} onChange={setI('area_construccion')} />
-            <Field label="Área terreno (m²)" type="number" min="0" value={inm.area_terreno} onChange={setI('area_terreno')} />
+            <Field label="Recámaras" type="number" min="0" max="100" value={inm.num_recamaras} onChange={setI('num_recamaras')} />
+            <Field label="Baños" type="number" min="0" max="100" value={inm.num_banos} onChange={setI('num_banos')} />
+            <Field label="Estacionamientos" type="number" min="0" max="100" value={inm.num_estacionamientos} onChange={setI('num_estacionamientos')} />
+            <Field label="Niveles" type="number" min="0" max="100" value={inm.niveles} onChange={setI('niveles')} />
+            <Field label="Área construcción (m²)" type="number" min="0" max="1000000" step="0.01" value={inm.area_construccion} onChange={setI('area_construccion')} />
+            <Field label="Área terreno (m²)" type="number" min="0" max="1000000" step="0.01" value={inm.area_terreno} onChange={setI('area_terreno')} />
           </div>
           <div className="field">
             <label htmlFor="amueblado">
@@ -197,12 +197,14 @@ export default function PropertyForm() {
           </p>
           <div className="grid form-2">
             <Field label="Estado" as="select" options={cat.estados_republica.map((e) => ({ value: e.id, label: e.valor }))} value={ubi.estado_id} onChange={setU('estado_id')} required />
-            <Field label="Ciudad" value={ubi.ciudad} onChange={setU('ciudad')} required />
-            <Field label="Colonia" value={ubi.colonia} onChange={setU('colonia')} required />
-            <Field label="Calle" value={ubi.calle} onChange={setU('calle')} required />
-            <Field label="Número exterior" value={ubi.numero_exterior} onChange={setU('numero_exterior')} required />
-            <Field label="Número interior" value={ubi.numero_interior} onChange={setU('numero_interior')} />
-            <Field label="Código postal" value={ubi.codigo_postal} onChange={setU('codigo_postal')} required />
+            <Field label="Ciudad" value={ubi.ciudad} onChange={setU('ciudad')} required maxLength={100} />
+            <Field label="Colonia" value={ubi.colonia} onChange={setU('colonia')} required maxLength={100} />
+            <Field label="Calle" value={ubi.calle} onChange={setU('calle')} required maxLength={100} />
+            <Field label="Número exterior" value={ubi.numero_exterior} onChange={setU('numero_exterior')} required maxLength={20} />
+            <Field label="Número interior" value={ubi.numero_interior} onChange={setU('numero_interior')} maxLength={20} />
+            <Field label="Código postal" type="text" inputMode="numeric" value={ubi.codigo_postal}
+                   onChange={(e) => setUbi((s) => ({ ...s, codigo_postal: e.target.value.replace(/\D/g, '') }))}
+                   required maxLength={5} hint="5 dígitos." />
             <Field label="Latitud" type="number" step="any" value={ubi.latitud} onChange={setU('latitud')} hint="Para el mapa." />
             <Field label="Longitud" type="number" step="any" value={ubi.longitud} onChange={setU('longitud')} hint="Para el mapa." />
           </div>
