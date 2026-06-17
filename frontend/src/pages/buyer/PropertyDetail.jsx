@@ -180,18 +180,18 @@ export default function PropertyDetail() {
             />
           </div>
           {fotos.length > 1 && (
-            <div className="detail-thumbs" role="list" aria-label="Miniaturas">
+            <div className="detail-thumbs" role="group" aria-label="Miniaturas">
               {fotos.map((f, i) => (
-                <img
+                <button
                   key={f.id}
-                  src={f.url_archivo}
-                  alt={f.descripcion || `Fotografía ${i + 1} de ${inm.titulo}`}
-                  role="listitem"
-                  className={i === fotoActiva ? 'selected' : ''}
+                  type="button"
+                  className={`thumb-btn${i === fotoActiva ? ' selected' : ''}`}
+                  aria-pressed={i === fotoActiva}
+                  aria-label={`Ver fotografía ${i + 1} de ${fotos.length}${f.descripcion ? `: ${f.descripcion}` : ''}`}
                   onClick={() => setFotoActiva(i)}
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setFotoActiva(i)}
-                />
+                >
+                  <img src={f.url_archivo} alt="" />
+                </button>
               ))}
             </div>
           )}

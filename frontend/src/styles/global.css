@@ -615,12 +615,15 @@ details.filtros summary::-webkit-details-marker { display: none; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: var(--sp-2); margin-top: var(--sp-2);
 }
-.detail-thumbs img {
-  width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--radius);
-  cursor: pointer; border: 2px solid transparent; transition: border-color var(--t-fast), opacity var(--t-fast);
+.thumb-btn {
+  padding: 0; background: none; cursor: pointer; border-radius: var(--radius);
+  border: 2px solid transparent; transition: border-color var(--t-fast), opacity var(--t-fast);
 }
-.detail-thumbs img:hover { border-color: var(--p-400); }
-.detail-thumbs img.selected { border-color: var(--p-600); }
+.thumb-btn img {
+  display: block; width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--radius);
+}
+.thumb-btn:hover { border-color: var(--p-400); }
+.thumb-btn.selected { border-color: var(--p-600); }
 
 .detail-price { font-family: var(--font-display); font-size: var(--text-4xl); font-weight: 800; color: var(--p-700); letter-spacing: -0.03em; line-height: 1; }
 .detail-feats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); margin: var(--sp-4) 0; }

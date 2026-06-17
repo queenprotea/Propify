@@ -61,4 +61,5 @@ export const contactsApi = {
   all: (limit = 100, offset = 0) =>
     client.get(`${base}/contactos/all`, { params: { limit, offset } }).then((r) => r.data),
   byInmueble: (id) => client.get(`${base}/contactos/inmueble/${id}`).then((r) => r.data),
+  remove: (id) => client.delete(`${base}/contactos/${id}`).then((r) => r.data),
 }
