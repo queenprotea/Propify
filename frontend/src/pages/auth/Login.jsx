@@ -40,18 +40,29 @@ export default function Login() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '0 auto' }}>
-      <h1>Iniciar sesión</h1>
-      <div className="card">
+    <div className="auth-outer">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span className="brand-icon">P</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--p-700)' }}>Propify</span>
+          </div>
+        </div>
+
+        <h1 className="auth-title">Bienvenido de vuelta</h1>
+        <p className="auth-subtitle">Inicia sesión para acceder a tu cuenta</p>
+
         <Alert type="error">{error}</Alert>
         <Alert type="success">{info}</Alert>
+
         {sinVerificar && (
-          <p>
-            <button className="btn secondary" type="button" onClick={reenviar}>
+          <div style={{ marginBottom: '1rem' }}>
+            <button className="btn secondary full" type="button" onClick={reenviar}>
               Reenviar enlace de verificación
             </button>
-          </p>
+          </div>
         )}
+
         <form onSubmit={onSubmit} noValidate>
           <Field
             label="Correo electrónico o teléfono"
@@ -68,14 +79,16 @@ export default function Login() {
             autoComplete="current-password"
             required
           />
-          <button className="btn" type="submit" disabled={loading}>
-            {loading ? 'Entrando…' : 'Entrar'}
+          <button className="btn full large" type="submit" disabled={loading}>
+            {loading ? 'Ingresando…' : 'Iniciar sesión'}
           </button>
         </form>
+
+        <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: 'var(--text-sm)', color: 'var(--n-500)' }}>
+          ¿No tienes cuenta?{' '}
+          <Link to="/registro" style={{ color: 'var(--p-600)', fontWeight: 600 }}>Crear cuenta</Link>
+        </p>
       </div>
-      <p style={{ marginTop: '1rem' }}>
-        ¿No tienes cuenta? <Link to="/registro">Crear cuenta</Link>
-      </p>
     </div>
   )
 }

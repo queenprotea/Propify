@@ -11,12 +11,21 @@ import Spinner from '../../components/Spinner'
 import PropertyMap from '../../components/PropertyMap'
 
 const hoyISO = new Date().toISOString().slice(0, 10)
-// Mínimo para agendar visita: mañana a las 09:00 (no hoy ni fechas pasadas).
 const minVisitaLocal = (() => {
   const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0)
   const p = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 })()
+
+function DetailFeat({ label, value }) {
+  if (!value && value !== 0) return null
+  return (
+    <div>
+      <div className="detail-feat-label">{label}</div>
+      <div className="detail-feat-value">{value}</div>
+    </div>
+  )
+}
 
 export default function PropertyDetail() {
   const { id } = useParams()
@@ -24,6 +33,7 @@ export default function PropertyDetail() {
   const [inm, setInm] = useState(null)
   const [ubi, setUbi] = useState(null)
   const [fotos, setFotos] = useState([])
+  const [fotoActiva, setFotoActiva] = useState(0)
   const [historial, setHistorial] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -81,7 +91,6 @@ export default function PropertyDetail() {
     }
   }
 
-  // Duración estimada en meses a partir de las fechas elegidas.
   function mesesEntre(ini, fin) {
     if (!ini || !fin) return 0
     const a = new Date(ini), b = new Date(fin)
@@ -133,7 +142,6 @@ export default function PropertyDetail() {
   async function agendarVisita(e) {
     e.preventDefault()
     setVisitaMsg({ ok: '', err: '' })
-    // La visita debe ser a partir de mañana (no fechas pasadas ni el mismo día).
     if (!visitaFecha || visitaFecha.slice(0, 10) <= hoyISO) {
       setVisitaMsg({ ok: '', err: 'La visita debe agendarse para una fecha posterior a hoy.' }); return
     }
@@ -153,177 +161,235 @@ export default function PropertyDetail() {
     }
   }
 
-  if (loading) return <Spinner label="Cargando inmueble…" />
+  if (loading) return <div style={{ paddingTop: '2rem' }}><Spinner label="Cargando inmueble…" /></div>
   if (error) return <Alert type="error">{error}</Alert>
   if (!inm) return null
 
+  const estado = estadoDe(inm)
+  const fotoHero = fotos[fotoActiva]
+
   return (
-    <div className="stack">
-      <h1>{inm.titulo}</h1>
-      <p className="row">
-        <span className="price" style={{ fontSize: '1.5rem' }}>{formatoMoneda(inm.precio)}</span>
-        <span className={`badge ${claseEstado(estadoDe(inm))}`}>{capitalizar(estadoDe(inm))}</span>
-      </p>
-
-      {/* Galería accesible: cada imagen con su texto alternativo */}
-      <section aria-label="Fotografías del inmueble">
-        {fotos.length === 0 ? (
-          <p className="muted">Este inmueble no tiene fotografías.</p>
-        ) : (
-          <div className="grid cards">
-            {fotos.map((f) => (
-              <img
-                key={f.id}
-                src={f.url_archivo}
-                alt={f.descripcion || `Fotografía de ${inm.titulo}`}
-                style={{ width: '100%', borderRadius: 'var(--radius)' }}
-              />
-            ))}
+    <div>
+      {/* ---- GALERÍA ---- */}
+      {fotos.length > 0 ? (
+        <section aria-label="Fotografías del inmueble" className="detail-gallery">
+          <div className="detail-hero-img">
+            <img
+              src={fotoHero.url_archivo}
+              alt={fotoHero.descripcion || `Fotografía principal de ${inm.titulo}`}
+            />
           </div>
-        )}
-      </section>
-
-      <div className="layout-2col">
-        <div className="card stack">
-          <h2>Características</h2>
-          <dl className="stack">
-            <div><dt style={{ fontWeight: 600 }}>Tipo</dt><dd>{capitalizar(tipoDe(inm))}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Operación</dt><dd>{capitalizar(operacionDe(inm)) || '—'}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Uso</dt><dd>{capitalizar(usoDe(inm))}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Recámaras</dt><dd>{inm.num_recamaras ?? '—'}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Baños</dt><dd>{inm.num_banos ?? '—'}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Estacionamientos</dt><dd>{inm.num_estacionamientos ?? '—'}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Área construcción</dt><dd>{inm.area_construccion ? `${inm.area_construccion} m²` : '—'}</dd></div>
-            <div><dt style={{ fontWeight: 600 }}>Amueblado</dt><dd>{inm.amueblado ? 'Sí' : 'No'}</dd></div>
-          </dl>
+          {fotos.length > 1 && (
+            <div className="detail-thumbs" role="list" aria-label="Miniaturas">
+              {fotos.map((f, i) => (
+                <img
+                  key={f.id}
+                  src={f.url_archivo}
+                  alt={f.descripcion || `Fotografía ${i + 1} de ${inm.titulo}`}
+                  role="listitem"
+                  className={i === fotoActiva ? 'selected' : ''}
+                  onClick={() => setFotoActiva(i)}
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && setFotoActiva(i)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <div style={{ background: 'var(--n-100)', borderRadius: 'var(--radius-lg)', height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--sp-6)', color: 'var(--n-400)' }}>
+          <p>Este inmueble no tiene fotografías aún.</p>
         </div>
+      )}
 
+      {/* ---- LAYOUT: contenido principal + sidebar ---- */}
+      <div className="detail-layout">
+        {/* Columna principal */}
         <div className="stack">
+          {/* Header de la propiedad */}
+          <div>
+            <div className="row" style={{ marginBottom: 'var(--sp-2)' }}>
+              <span className={`badge ${claseEstado(estado)}`}>{capitalizar(estado)}</span>
+              <span style={{ color: 'var(--n-500)', fontSize: 'var(--text-sm)' }}>
+                {capitalizar(tipoDe(inm))} · {capitalizar(usoDe(inm))}
+              </span>
+            </div>
+            <h1 style={{ marginBottom: 'var(--sp-2)' }}>{inm.titulo}</h1>
+            {ubi?.direccion_completa && (
+              <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                {ubi.direccion_completa}
+              </p>
+            )}
+          </div>
+
+          {/* Descripción */}
           {inm.descripcion && (
             <div className="card">
               <h2>Descripción</h2>
-              <p>{inm.descripcion}</p>
+              <p style={{ margin: 0, lineHeight: 1.8 }}>{inm.descripcion}</p>
             </div>
           )}
 
+          {/* Características */}
+          <div className="card">
+            <h2>Características</h2>
+            <div className="detail-feats-grid">
+              <DetailFeat label="Tipo" value={capitalizar(tipoDe(inm))} />
+              <DetailFeat label="Operación" value={capitalizar(operacionDe(inm)) || '—'} />
+              <DetailFeat label="Uso" value={capitalizar(usoDe(inm))} />
+              <DetailFeat label="Recámaras" value={inm.num_recamaras ?? '—'} />
+              <DetailFeat label="Baños" value={inm.num_banos ?? '—'} />
+              <DetailFeat label="Estacionamientos" value={inm.num_estacionamientos ?? '—'} />
+              <DetailFeat label="Área construcción" value={inm.area_construccion ? `${inm.area_construccion} m²` : '—'} />
+              <DetailFeat label="Amueblado" value={inm.amueblado ? 'Sí' : 'No'} />
+            </div>
+          </div>
+
+          {/* Mapa */}
           {ubi && (
-            <div className="card stack">
+            <div className="card">
               <h2>Ubicación</h2>
-              <p>{ubi.direccion_completa}</p>
-              <PropertyMap points={[{ id: inm.id, titulo: inm.titulo, lat: ubi.latitud, lng: ubi.longitud, direccion: ubi.direccion_completa }]} />
+              <PropertyMap
+                points={[{ id: inm.id, titulo: inm.titulo, lat: ubi.latitud, lng: ubi.longitud, direccion: ubi.direccion_completa }]}
+              />
+            </div>
+          )}
+
+          {/* Formulario de contacto */}
+          {!isAdmin && (
+            <div className="card">
+              <h2>Contactar al anunciante</h2>
+              <Alert type="error">{contactoMsg.err}</Alert>
+              <Alert type="success">{contactoMsg.ok}</Alert>
+              <form onSubmit={enviarContacto} noValidate>
+                <div className="grid form-2">
+                  <Field label="Tu nombre" value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} required maxLength={100} />
+                  <Field label="Tu correo" type="email" value={contacto.correo} onChange={(e) => setContacto((c) => ({ ...c, correo: e.target.value }))} required maxLength={100} />
+                </div>
+                <Field label="Mensaje" as="textarea" value={contacto.mensaje} onChange={(e) => setContacto((c) => ({ ...c, mensaje: e.target.value }))} required maxLength={1000} />
+                <button className="btn" type="submit">Enviar mensaje</button>
+              </form>
+            </div>
+          )}
+
+          {/* Historial de estados */}
+          {historial.length > 0 && (
+            <div className="card">
+              <h2>Historial de estados</h2>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {historial.map((h) => (
+                  <li key={h.id} style={{ fontSize: 'var(--text-sm)', color: 'var(--n-600)' }}>
+                    <strong style={{ color: 'var(--n-800)' }}>{capitalizar(h.estado_inmueble?.valor)}</strong>
+                    {' — desde '}{new Date(h.fecha_inicio).toLocaleDateString('es-MX')}
+                    {h.fecha_fin ? ` hasta ${new Date(h.fecha_fin).toLocaleDateString('es-MX')}` : ' (actual)'}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Contacto y visita son acciones de cliente: no se muestran al administrador. */}
-      {!isAdmin && (
-        <>
-          {/* Contacto */}
-          <div className="card stack">
-            <h2>Contactar al anunciante</h2>
-            <Alert type="error">{contactoMsg.err}</Alert>
-            <Alert type="success">{contactoMsg.ok}</Alert>
-            <form onSubmit={enviarContacto} noValidate>
-              <div className="grid form-2">
-                <Field label="Tu nombre" value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} required maxLength={100} />
-                <Field label="Tu correo" type="email" value={contacto.correo} onChange={(e) => setContacto((c) => ({ ...c, correo: e.target.value }))} required maxLength={100} />
+        {/* ---- SIDEBAR ---- */}
+        <div className="detail-sidebar stack">
+          {/* Precio + badge */}
+          <div className="card" style={{ borderColor: 'var(--p-200)' }}>
+            <div className="detail-price">{formatoMoneda(inm.precio)}</div>
+            <div style={{ marginTop: 'var(--sp-2)' }}>
+              <span className={`badge ${claseEstado(estado)}`}>{capitalizar(estado)}</span>
+            </div>
+
+            {/* Agendar visita */}
+            {!isAdmin && (
+              <div style={{ marginTop: 'var(--sp-4)', paddingTop: 'var(--sp-4)', borderTop: '1px solid var(--n-100)' }}>
+                <h3 style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--sp-3)' }}>Agendar visita</h3>
+                {isAuthenticated ? (
+                  <>
+                    <Alert type="error">{visitaMsg.err}</Alert>
+                    <Alert type="success">{visitaMsg.ok}</Alert>
+                    <form onSubmit={agendarVisita} noValidate>
+                      <Field
+                        label="Fecha y hora"
+                        type="datetime-local"
+                        value={visitaFecha}
+                        min={minVisitaLocal}
+                        onChange={(e) => setVisitaFecha(e.target.value)}
+                        required
+                        hint="A partir de mañana."
+                      />
+                      <button className="btn full" type="submit" disabled={!visitaFecha}>
+                        Agendar visita
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <p className="muted" style={{ fontSize: 'var(--text-sm)', margin: 0 }}>
+                    <a href="/login">Inicia sesión</a> para agendar una visita.
+                  </p>
+                )}
               </div>
-              <Field label="Mensaje" as="textarea" value={contacto.mensaje} onChange={(e) => setContacto((c) => ({ ...c, mensaje: e.target.value }))} required maxLength={1000} />
-              <button className="btn" type="submit">Enviar mensaje</button>
-            </form>
-          </div>
+            )}
 
-          {/* Agendar visita (requiere sesión de cliente) */}
-          <div className="card stack">
-            <h2>Agendar una visita</h2>
-            {isAuthenticated ? (
-              <>
-                <Alert type="error">{visitaMsg.err}</Alert>
-                <Alert type="success">{visitaMsg.ok}</Alert>
-                <form onSubmit={agendarVisita} noValidate>
-                  <Field
-                    label="Fecha y hora" type="datetime-local"
-                    value={visitaFecha} min={minVisitaLocal} onChange={(e) => setVisitaFecha(e.target.value)} required
-                    hint="La visita debe agendarse a partir de mañana."
-                  />
-                  <button className="btn" type="submit" disabled={!visitaFecha}>Agendar visita</button>
-                </form>
-              </>
-            ) : (
-              <p className="muted">Inicia sesión para agendar una visita.</p>
+            {/* Solicitar renta */}
+            {!isAdmin && estado === 'en renta' && (
+              <div style={{ marginTop: 'var(--sp-4)', paddingTop: 'var(--sp-4)', borderTop: '1px solid var(--n-100)' }}>
+                <h3 style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--sp-3)' }}>Solicitar renta</h3>
+                <Alert type="error">{rentaMsg.err}</Alert>
+                <Alert type="success">{rentaMsg.ok}</Alert>
+                {isAuthenticated ? (
+                  <form onSubmit={solicitarRenta} className="stack">
+                    <p className="muted" style={{ margin: 0, fontSize: 'var(--text-xs)' }}>
+                      Indica el periodo que deseas rentar.
+                    </p>
+                    <Field label="Inicio de la renta" type="date" value={renta.fecha_inicio} min={hoyISO}
+                      onChange={(e) => setRenta((r) => ({ ...r, fecha_inicio: e.target.value }))} required />
+                    <Field label="Fin de la renta" type="date" value={renta.fecha_fin} min={renta.fecha_inicio || hoyISO}
+                      onChange={(e) => setRenta((r) => ({ ...r, fecha_fin: e.target.value }))} required />
+                    {mesesEntre(renta.fecha_inicio, renta.fecha_fin) > 0 && (
+                      <p className="muted" style={{ margin: 0, fontSize: 'var(--text-xs)' }}>
+                        Duración estimada: <strong>{mesesEntre(renta.fecha_inicio, renta.fecha_fin)} mes(es)</strong>
+                      </p>
+                    )}
+                    <button className="btn full" type="submit" disabled={!!rentaMsg.ok}>
+                      Solicitar renta
+                    </button>
+                  </form>
+                ) : (
+                  <p className="muted" style={{ fontSize: 'var(--text-sm)', margin: 0 }}>
+                    <a href="/login">Inicia sesión</a> para solicitar la renta.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Solicitar compra */}
+            {!isAdmin && estado === 'en venta' && (
+              <div style={{ marginTop: 'var(--sp-4)', paddingTop: 'var(--sp-4)', borderTop: '1px solid var(--n-100)' }}>
+                <h3 style={{ fontSize: 'var(--text-base)', marginBottom: 'var(--sp-3)' }}>Solicitar compra</h3>
+                <Alert type="error">{compraMsg.err}</Alert>
+                <Alert type="success">{compraMsg.ok}</Alert>
+                {isAuthenticated ? (
+                  <>
+                    <p className="muted" style={{ fontSize: 'var(--text-xs)', marginBottom: 'var(--sp-3)' }}>
+                      Envía tu solicitud y el administrador te contactará para continuar el proceso.
+                    </p>
+                    <button className="btn full" type="button" onClick={solicitarCompra} disabled={!!compraMsg.ok}>
+                      Solicitar compra
+                    </button>
+                  </>
+                ) : (
+                  <p className="muted" style={{ fontSize: 'var(--text-sm)', margin: 0 }}>
+                    <a href="/login">Inicia sesión</a> para solicitar la compra.
+                  </p>
+                )}
+              </div>
             )}
           </div>
-        </>
-      )}
-
-      {/* Historial de estados */}
-      {historial.length > 0 && (
-        <div className="card">
-          <h2>Historial de estados</h2>
-          <ul>
-            {historial.map((h) => (
-              <li key={h.id}>
-                <strong>{capitalizar(h.estado_inmueble?.valor)}</strong> — desde {new Date(h.fecha_inicio).toLocaleDateString('es-MX')}
-                {h.fecha_fin ? ` hasta ${new Date(h.fecha_fin).toLocaleDateString('es-MX')}` : ' (actual)'}
-              </li>
-            ))}
-          </ul>
         </div>
-      )}
-
-      {/* Solicitar renta/compra son acciones de cliente: no se muestran al administrador. */}
-
-      {/* Solicitud de renta en línea (al final, junto a su formulario) */}
-      {!isAdmin && estadoDe(inm) === 'en renta' && (
-        <div className="card stack">
-          <h2>Solicitar renta</h2>
-          <Alert type="error">{rentaMsg.err}</Alert>
-          <Alert type="success">{rentaMsg.ok}</Alert>
-          {isAuthenticated ? (
-            <form onSubmit={solicitarRenta} className="stack">
-              <p className="muted" style={{ margin: 0 }}>
-                Indica el periodo que deseas rentar. Podrás darle seguimiento en "Mis solicitudes".
-              </p>
-              <div className="grid form-2">
-                <Field label="Inicio de la renta" type="date" value={renta.fecha_inicio} min={hoyISO}
-                       onChange={(e) => setRenta((r) => ({ ...r, fecha_inicio: e.target.value }))} required />
-                <Field label="Fin de la renta" type="date" value={renta.fecha_fin} min={renta.fecha_inicio || hoyISO}
-                       onChange={(e) => setRenta((r) => ({ ...r, fecha_fin: e.target.value }))} required />
-              </div>
-              {mesesEntre(renta.fecha_inicio, renta.fecha_fin) > 0 && (
-                <p className="muted" style={{ margin: 0 }}>
-                  Duración estimada: <strong>{mesesEntre(renta.fecha_inicio, renta.fecha_fin)} mes(es)</strong>
-                </p>
-              )}
-              <button className="btn" type="submit" disabled={!!rentaMsg.ok}>Solicitar renta</button>
-            </form>
-          ) : (
-            <p className="muted">Inicia sesión para solicitar la renta de este inmueble.</p>
-          )}
-        </div>
-      )}
-
-      {/* Solicitud de compra en línea (al final, junto a su formulario) */}
-      {!isAdmin && estadoDe(inm) === 'en venta' && (
-        <div className="card stack">
-          <h2>Solicitar compra</h2>
-          <Alert type="error">{compraMsg.err}</Alert>
-          <Alert type="success">{compraMsg.ok}</Alert>
-          {isAuthenticated ? (
-            <div className="row">
-              <p className="muted" style={{ margin: 0, flex: 1, minWidth: 200 }}>
-                ¿Te interesa comprar este inmueble? Envía tu solicitud de compra y dale seguimiento desde tu panel.
-              </p>
-              <button className="btn" type="button" onClick={solicitarCompra} disabled={!!compraMsg.ok}>
-                Solicitar compra
-              </button>
-            </div>
-          ) : (
-            <p className="muted">Inicia sesión para solicitar la compra de este inmueble.</p>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

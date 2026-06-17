@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react'
 
-// Diálogo accesible: rol dialog, foco atrapado básico, cierre con Escape,
-// retorno de foco al disparador. (WCAG 2.1.1 — operable por teclado)
 export default function Modal({ title, onClose, children }) {
   const ref = useRef(null)
   const titleId = 'modal-title'
@@ -35,10 +33,7 @@ export default function Modal({ title, onClose, children }) {
 
   return (
     <div
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 1000,
-      }}
+      className="modal-backdrop"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
@@ -46,12 +41,15 @@ export default function Modal({ title, onClose, children }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="card"
-        style={{ maxWidth: 560, width: '100%', maxHeight: '90vh', overflow: 'auto' }}
+        className="modal-box"
       >
-        <div className="row" style={{ justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <h2 id={titleId} style={{ margin: 0 }}>{title}</h2>
-          <button className="btn small secondary" onClick={onClose} aria-label="Cerrar diálogo">✕</button>
+        <div className="modal-hd">
+          <h2 id={titleId}>{title}</h2>
+          <button className="modal-close" onClick={onClose} aria-label="Cerrar diálogo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
         {children}
       </div>
