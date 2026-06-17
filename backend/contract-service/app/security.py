@@ -41,7 +41,6 @@ def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(securi
 
 
 def require_owner_or_admin(payload: dict, usuario_id: int):
-    """El recurso solo es accesible por su dueño o por un administrador."""
     if payload.get("is_admin"):
         return
     if int(payload.get("sub")) != int(usuario_id):

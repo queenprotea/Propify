@@ -5,7 +5,7 @@ from typing import List, Optional
 from decimal import Decimal
 from enum import Enum
 
-# Caracteres inválidos y secuencias de símbolos spam en texto capturado por el usuario.
+# Caracteres inválidos y secuencias de símbolos spam en texto capturado por el usuario
 _CARS_INVALIDOS = re.compile(r"[<>{}\[\]\\|^~`]")
 _SIMBOLOS_SPAM = re.compile(r"[¿?¡!*#]{2,}")
 
@@ -63,7 +63,7 @@ class PagoBase(BaseModel):
     metodo: str
 
 class PagoCreate(BaseModel):
-    """Pago manual (efectivo o transferencia). Queda pendiente de verificación."""
+    """Pago efectivo o transferencia. Queda pendiente de verificación."""
     monto:  Decimal
     metodo: MetodoPago = MetodoPago.efectivo
     numero_cuota: Optional[int] = None   # renta: mensualidad específica a cubrir
@@ -88,11 +88,7 @@ class PagoVerificacion(BaseModel):
     motivo:   Optional[str] = None
 
 class PagoStripeCreate(BaseModel):
-    """Pago con tarjeta vía Stripe (PaymentIntent real).
-
-    payment_method es el id generado por Stripe Elements en el navegador a
-    partir de los datos reales de la tarjeta; es obligatorio (no se simula).
-    """
+   #pago via strpe
     monto:          Decimal
     payment_method: str
     numero_cuota:   Optional[int] = None   # renta: mensualidad específica a cubrir
@@ -186,7 +182,7 @@ class ClausulaNueva(BaseModel):
 class ContratoCreate(ContratoBase):
     clausula_ids: List[int] = []          # cláusulas del catálogo a incluir
     clausulas_nuevas: List[ClausulaNueva] = []   # cláusulas escritas al momento
-    meses_plazo: Optional[int] = None     # venta a plazos: nº de mensualidades (1 = pago único)
+    meses_plazo: Optional[int] = None     # venta a plazos 1 = pago único
 
 class ContratoResponse(ContratoBase):
     id:                 int
@@ -228,7 +224,7 @@ class RenovarContrato(BaseModel):
         return v
 
 
-# Resumen económico genérico (sirve para venta y renta)
+# Resumen económico genérico
 class ResumenContrato(BaseModel):
     contrato_id:         int
     tipo:                str
@@ -283,8 +279,7 @@ class SolicitudCreate(BaseModel):
     @field_validator("tipo_operacion")
     @classmethod
     def _req_fechas_renta(cls, v, info):
-        # (la validación dura de fechas en renta se hace en el endpoint, donde
-        #  ya están disponibles todos los campos)
+
         return v
 
 class SolicitudEstadoUpdate(BaseModel):
@@ -305,9 +300,7 @@ class SolicitudResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-# Datos para generar el contrato a partir de una solicitud aprobada.
-# El administrador puede modificar la duración propuesta; si omite las fechas,
-# se usan las de la solicitud.
+# GENERAR CONTRATO DE RENTA
 class GenerarContratoRenta(BaseModel):
     fecha_inicio: Optional[date] = None
     fecha_fin:    Optional[date] = None
@@ -366,11 +359,11 @@ class ComprobanteResponse(BaseModel):
 
 # Generar contrato de COMPRAVENTA a partir de una solicitud de compra aprobada.
 class GenerarContratoVenta(BaseModel):
-    monto:       Decimal   # precio de venta (confirmado o modificado)
+    monto:       Decimal   # precio de venta
     condiciones: Optional[str] = None
     clausula_ids: List[int] = []
     clausulas_nuevas: List["ClausulaNueva"] = []
-    meses_plazo: int = 1   # 1 = pago único; >1 = venta a plazos (mensualidades)
+    meses_plazo: int = 1   # 1 = pago único; >1 = venta a plazos
 
     @field_validator("monto")
     @classmethod

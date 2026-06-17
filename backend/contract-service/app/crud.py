@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import datetime, date
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
@@ -232,6 +233,40 @@ def _actualizar_vencidos(db: Session, contrato: models.Contrato) -> None:
         db.commit()
 
 
+# Estados de pago que cuentan como "pendiente de cubrir" en una renta.
+_PAGOS_NO_CUBIERTOS = ("pendiente", "vencido", "pendiente_de_verificacion")
+
+
+def renta_totalmente_cubierta(contrato: models.Contrato) -> bool:
+    """True si la renta tiene al menos una mensualidad y ninguna queda por cubrir."""
+    cuotas = list(contrato.pagos or [])
+    if not cuotas:
+        return False
+    return all(p.estado not in _PAGOS_NO_CUBIERTOS for p in cuotas)
+
+
+def rentas_para_autofinalizar(db: Session) -> list[models.Contrato]:
+    """Rentas ACTIVAS cuyo plazo ya venció y cuyos pagos están todos cubiertos.
+
+    No modifica nada: solo identifica las candidatas. La transición de estado y la
+    liberación del inmueble las realiza la capa de servicio (necesita property-service).
+    """
+    hoy = date.today()
+    activas = (
+        db.query(models.Contrato)
+        .filter(
+            models.Contrato.tipo == "Renta",
+            models.Contrato.estado == "activo",
+            models.Contrato.fecha_fin.isnot(None),
+            models.Contrato.fecha_fin <= hoy,
+        )
+        .all()
+    )
+    for c in activas:
+        _actualizar_vencidos(db, c)
+    return [c for c in activas if renta_totalmente_cubierta(c)]
+
+
 def resumen_venta(contrato: models.Contrato) -> schemas.ResumenVenta:
     total = Decimal(contrato.monto)
     pagado = sum((Decimal(p.monto) for p in contrato.pagos if p.estado == "pagado"), Decimal(0))
@@ -412,11 +447,31 @@ def verificar_pago(db: Session, pago: models.Pago, aprobado: bool, motivo=None):
     return pago
 
 
-# ─────────────────────────  SOLICITUDES DE RENTA  ─────────────────────────
+#  SOLICITUDES DE RENTA
 
 def _meses_entre(inicio, fin) -> int:
     d = relativedelta(fin, inicio)
     return max(d.years * 12 + d.months, 1)
+
+
+def existe_solicitud_activa(db: Session, usuario_id: int, inmueble_id: int, tipo: str) -> bool:
+
+    return (
+        db.query(models.SolicitudRenta)
+        .outerjoin(models.Contrato, models.SolicitudRenta.contrato_id == models.Contrato.id)
+        .filter(
+            models.SolicitudRenta.usuario_id == usuario_id,
+            models.SolicitudRenta.inmueble_id == inmueble_id,
+            models.SolicitudRenta.tipo_operacion == tipo,
+            models.SolicitudRenta.estado.in_(["pendiente", "en revision", "aprobada"]),
+            or_(
+                models.SolicitudRenta.contrato_id.is_(None),
+                models.Contrato.estado.notin_(["finalizado", "cancelado"]),
+            ),
+        )
+        .first()
+        is not None
+    )
 
 
 def crear_solicitud(db: Session, usuario_id: int, datos: schemas.SolicitudCreate) -> models.SolicitudRenta:
@@ -457,7 +512,7 @@ def cambiar_estado_solicitud(db: Session, sol: models.SolicitudRenta, nuevo_esta
     return sol
 
 
-# ─────────────────────────  COMPROBANTES  ─────────────────────────
+#  COMPROBANTES
 
 def crear_comprobante(db: Session, contrato_id: int, usuario_id: int, url: str, pago_id=None):
     comp = models.Comprobante(
@@ -482,7 +537,7 @@ def obtener_comprobante(db: Session, comprobante_id: int):
 
 
 def crear_pago(db: Session, contrato_id: int, datos, stripe_session_id: str | None = None):
-    """Compatibilidad con el flujo de Stripe (pago 'pendiente')."""
+    """Compatibilidad con el flujo de Stripe """
     pago = models.Pago(
         monto=datos.monto,
         metodo=getattr(datos, "metodo", "stripe"),

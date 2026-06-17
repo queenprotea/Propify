@@ -81,7 +81,7 @@ def crear_sesion(
     contrato_id: int,
     moneda: str = "mxn",
     success_url: str = "https://mi-sitio.com/pago-exitoso",
-    cancel_url: str  = "https://mi-sitio.com/pago-cancelado", #pjo recuerda cambiarlos
+    cancel_url: str  = "https://mi-sitio.com/pago-cancelado",
 ) -> stripe.checkout.Session:
     #Despacha al flujo correcto según el tipo de contrato
     if tipo_contrato == "Venta":

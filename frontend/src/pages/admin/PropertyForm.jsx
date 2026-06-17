@@ -60,6 +60,29 @@ export default function PropertyForm() {
   const setI = (f) => (e) => setInm((s) => ({ ...s, [f]: e.target.value }))
   const setU = (f) => (e) => setUbi((s) => ({ ...s, [f]: e.target.value }))
 
+  // Captura numérica: solo dígitos (enteros) o dígitos con un punto (decimales),
+  // limitando la cantidad de caracteres en vez de imponer un valor máximo arbitrario.
+  const soloEntero = (max) => (v) => (v || '').replace(/\D/g, '').slice(0, max)
+  const soloDecimal = (maxEnteros) => (v) => {
+    let s = (v || '').replace(/[^\d.]/g, '')
+    const i = s.indexOf('.')
+    if (i !== -1) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, '')  // un solo punto
+    const [ent, dec] = s.split('.')
+    return dec !== undefined ? `${ent.slice(0, maxEnteros)}.${dec.slice(0, 2)}` : ent.slice(0, maxEnteros)
+  }
+  const setINum = (f, filtro) => (e) => setInm((s) => ({ ...s, [f]: filtro(e.target.value) }))
+
+  // Errores por campo, calculados en vivo (se muestran junto a cada campo).
+  const err = {
+    titulo: inm.titulo && (inm.titulo.trim().length < 5 ? 'Mínimo 5 caracteres.' : validarTexto(inm.titulo, 'El título')),
+    descripcion: validarTexto(inm.descripcion, 'La descripción'),
+    precio: inm.precio !== '' && Number(inm.precio) <= 0 ? 'Debe ser mayor que 0.' : '',
+    ciudad: validarTexto(ubi.ciudad, 'La ciudad'),
+    colonia: validarTexto(ubi.colonia, 'La colonia'),
+    calle: validarTexto(ubi.calle, 'La calle'),
+    codigo_postal: ubi.codigo_postal && ubi.codigo_postal.length < 4 ? 'Entre 4 y 6 dígitos.' : '',
+  }
+
   // Aplica la ubicación elegida en el mapa, rellenando solo los campos con valor.
   // El nombre del estado (geocodificador) se traduce a su id de catálogo.
   function aplicarUbicacionMapa(info) {
@@ -166,18 +189,18 @@ export default function PropertyForm() {
       <form onSubmit={onSubmit} noValidate className="stack">
         <fieldset className="card">
           <legend><h2 style={{ display: 'inline' }}>Datos del inmueble</h2></legend>
-          <Field label="Título" value={inm.titulo} onChange={setI('titulo')} required minLength={5} maxLength={100} hint="Entre 5 y 100 caracteres." />
-          <Field label="Descripción" as="textarea" value={inm.descripcion} onChange={setI('descripcion')} maxLength={2000} hint="Máximo 2000 caracteres." />
+          <Field label="Título" value={inm.titulo} onChange={setI('titulo')} required minLength={5} maxLength={100} hint="Entre 5 y 100 caracteres." error={err.titulo} />
+          <Field label="Descripción" as="textarea" value={inm.descripcion} onChange={setI('descripcion')} maxLength={2000} hint="Máximo 2000 caracteres." error={err.descripcion} />
           <div className="grid form-2">
-            <Field label="Precio (MXN)" type="number" min="1" max="999999999" step="0.01" value={inm.precio} onChange={setI('precio')} required />
+            <Field label="Precio (MXN)" type="text" inputMode="decimal" value={inm.precio} onChange={setINum('precio', soloDecimal(10))} required hint="Solo números." error={err.precio} />
             <Field label="Tipo" as="select" options={cat.tipos.map((t) => ({ value: t.id, label: capitalizar(t.valor) }))} value={inm.tipo_id} onChange={setI('tipo_id')} required />
             <Field label="Estado" as="select" options={cat.estados.map((t) => ({ value: t.id, label: capitalizar(t.valor) }))} value={inm.estado_id} onChange={setI('estado_id')} required hint="'En venta' o 'en renta' define la operación ofertada." />
-            <Field label="Recámaras" type="number" min="0" max="100" value={inm.num_recamaras} onChange={setI('num_recamaras')} />
-            <Field label="Baños" type="number" min="0" max="100" value={inm.num_banos} onChange={setI('num_banos')} />
-            <Field label="Estacionamientos" type="number" min="0" max="100" value={inm.num_estacionamientos} onChange={setI('num_estacionamientos')} />
-            <Field label="Niveles" type="number" min="0" max="100" value={inm.niveles} onChange={setI('niveles')} />
-            <Field label="Área construcción (m²)" type="number" min="0" max="1000000" step="0.01" value={inm.area_construccion} onChange={setI('area_construccion')} />
-            <Field label="Área terreno (m²)" type="number" min="0" max="1000000" step="0.01" value={inm.area_terreno} onChange={setI('area_terreno')} />
+            <Field label="Recámaras" type="text" inputMode="numeric" value={inm.num_recamaras} onChange={setINum('num_recamaras', soloEntero(3))} hint="Solo números." />
+            <Field label="Baños" type="text" inputMode="numeric" value={inm.num_banos} onChange={setINum('num_banos', soloEntero(3))} hint="Solo números." />
+            <Field label="Estacionamientos" type="text" inputMode="numeric" value={inm.num_estacionamientos} onChange={setINum('num_estacionamientos', soloEntero(3))} hint="Solo números." />
+            <Field label="Niveles" type="text" inputMode="numeric" value={inm.niveles} onChange={setINum('niveles', soloEntero(3))} hint="Solo números." />
+            <Field label="Área construcción (m²)" type="text" inputMode="decimal" value={inm.area_construccion} onChange={setINum('area_construccion', soloDecimal(7))} hint="Solo números." />
+            <Field label="Área terreno (m²)" type="text" inputMode="decimal" value={inm.area_terreno} onChange={setINum('area_terreno', soloDecimal(7))} hint="Solo números." />
           </div>
           <div className="field">
             <label htmlFor="amueblado">
@@ -201,16 +224,18 @@ export default function PropertyForm() {
           </p>
           <div className="grid form-2">
             <Field label="Estado" as="select" options={cat.estados_republica.map((e) => ({ value: e.id, label: e.valor }))} value={ubi.estado_id} onChange={setU('estado_id')} required />
-            <Field label="Ciudad" value={ubi.ciudad} onChange={setU('ciudad')} required maxLength={100} />
-            <Field label="Colonia" value={ubi.colonia} onChange={setU('colonia')} required maxLength={100} />
-            <Field label="Calle" value={ubi.calle} onChange={setU('calle')} required maxLength={100} />
+            <Field label="Ciudad" value={ubi.ciudad} onChange={setU('ciudad')} required maxLength={100} error={err.ciudad} />
+            <Field label="Colonia" value={ubi.colonia} onChange={setU('colonia')} required maxLength={100} error={err.colonia} />
+            <Field label="Calle" value={ubi.calle} onChange={setU('calle')} required maxLength={100} error={err.calle} />
             <Field label="Número exterior" value={ubi.numero_exterior} onChange={setU('numero_exterior')} required maxLength={20} />
             <Field label="Número interior" value={ubi.numero_interior} onChange={setU('numero_interior')} maxLength={20} />
             <Field label="Código postal" type="text" inputMode="numeric" value={ubi.codigo_postal}
-                   onChange={(e) => setUbi((s) => ({ ...s, codigo_postal: e.target.value.replace(/\D/g, '') }))}
-                   required maxLength={5} hint="5 dígitos." />
-            <Field label="Latitud" type="number" step="any" value={ubi.latitud} onChange={setU('latitud')} hint="Para el mapa." />
-            <Field label="Longitud" type="number" step="any" value={ubi.longitud} onChange={setU('longitud')} hint="Para el mapa." />
+                   onChange={(e) => setUbi((s) => ({ ...s, codigo_postal: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                   required maxLength={6} hint="Entre 4 y 6 dígitos." error={err.codigo_postal} />
+            <Field label="Latitud" type="text" inputMode="decimal" value={ubi.latitud}
+                   onChange={(e) => setUbi((s) => ({ ...s, latitud: e.target.value.replace(/[^\d.-]/g, '') }))} hint="Para el mapa (opcional)." />
+            <Field label="Longitud" type="text" inputMode="decimal" value={ubi.longitud}
+                   onChange={(e) => setUbi((s) => ({ ...s, longitud: e.target.value.replace(/[^\d.-]/g, '') }))} hint="Para el mapa (opcional)." />
           </div>
         </fieldset>
 

@@ -10,11 +10,9 @@ class TipoContrato(str, Enum):
 
 
 class IniciarPago(BaseModel):
-    """Payload del cliente para iniciar un flujo de pago con Stripe."""
     contrato_id:    int
     monto:          Decimal
     moneda:         str = "mxn"
-    # URLs a las que Stripe redirige después del pago
     success_url:    str = "https://tu-sitio.com/pago-exitoso"
     cancel_url:     str = "https://tu-sitio.com/pago-cancelado"
 

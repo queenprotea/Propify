@@ -7,7 +7,6 @@ TIMEOUT = 5
 
 
 def get_usuario(usuario_id: int, auth_header: str):
-    """Devuelve los datos del usuario (requiere token válido) o None."""
     if not usuario_id:
         return None
     try:

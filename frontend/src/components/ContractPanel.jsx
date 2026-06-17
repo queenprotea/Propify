@@ -70,6 +70,9 @@ export default function ContractPanel({ contrato, admin = false }) {
   async function subirFirmado(e) {
     e.preventDefault()
     if (!archivo) return
+    // El documento firmado solo admite PDF.
+    const esPdf = archivo.type === 'application/pdf' || archivo.name.toLowerCase().endsWith('.pdf')
+    if (!esPdf) { setMsg({ ok: '', err: 'El contrato firmado debe ser un archivo PDF.' }); return }
     // Si ya hay un firmado cargado (y no validado), confirmar el reemplazo.
     if (datos.url_firmado && !window.confirm(
       'Ya existe un documento firmado. El archivo anterior será reemplazado por el nuevo. ¿Continuar?'
@@ -255,9 +258,9 @@ export default function ContractPanel({ contrato, admin = false }) {
         <form onSubmit={subirFirmado} className="row" aria-label="Subir contrato firmado">
           <div className="field" style={{ marginBottom: 0 }}>
             <label htmlFor={`firma-${contrato.id}`}>
-              {datos.url_firmado ? 'Reemplazar contrato firmado (PDF/imagen)' : 'Subir contrato firmado (PDF/imagen)'}
+              {datos.url_firmado ? 'Reemplazar contrato firmado (solo PDF)' : 'Subir contrato firmado (solo PDF)'}
             </label>
-            <input id={`firma-${contrato.id}`} type="file" accept="application/pdf,image/png,image/jpeg" onChange={(e) => setArchivo(e.target.files[0])} />
+            <input id={`firma-${contrato.id}`} type="file" accept="application/pdf,.pdf" onChange={(e) => setArchivo(e.target.files[0])} />
           </div>
           <button className="btn small secondary" type="submit" disabled={!archivo}>
             {datos.url_firmado ? 'Reemplazar' : 'Subir'}

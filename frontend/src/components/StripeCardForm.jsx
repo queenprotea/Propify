@@ -81,9 +81,6 @@ export default function StripeCardForm({ monto, onPay, disabled }) {
       <label style={{ fontWeight: 500 }}>Datos de la tarjeta</label>
       <div ref={cardRef} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '10px 12px', background: '#fff' }} />
       {error && <p className="muted" style={{ color: 'var(--color-danger)', margin: 0 }}>{error}</p>}
-      <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-        Pruebas: tarjeta 4242 4242 4242 4242, cualquier fecha futura y CVC.
-      </p>
       <button className="btn" type="button" onClick={pagar} disabled={!listo || disabled || procesando}>
         {procesando ? 'Procesando…' : 'Pagar con tarjeta'}
       </button>

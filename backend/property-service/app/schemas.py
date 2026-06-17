@@ -129,12 +129,14 @@ class Ubicacion(UbicacionBase):
 
 # Límites realistas del dominio inmobiliario. Un "Inmueble" puede ser un edificio
 # completo, por eso los topes son generosos pero acotados para evitar capturas absurdas.
-PRECIO_MAX = 9_999_999_999          # ~10 mil millones MXN
-AREA_MAX = 10_000_000               # m² (1,000 ha: cubre terrenos/ranchos grandes)
-RECAMARAS_MAX = 200
-BANOS_MAX = 200
-ESTACIONAMIENTOS_MAX = 1000
-NIVELES_MAX = 200
+# Topes derivados del número de caracteres esperado (no valores de negocio arbitrarios).
+# precio/area se almacenan como DECIMAL(12,2) → máximo 10 dígitos enteros.
+PRECIO_MAX = 9_999_999_999          # hasta 10 dígitos enteros
+AREA_MAX = 9_999_999                # hasta 7 dígitos (m²)
+RECAMARAS_MAX = 999                 # hasta 3 dígitos
+BANOS_MAX = 999
+ESTACIONAMIENTOS_MAX = 999
+NIVELES_MAX = 999
 
 
 class InmuebleBase(BaseModel):
@@ -145,10 +147,13 @@ class InmuebleBase(BaseModel):
     estado_id: int
     area_construccion: Decimal | None = Field(default=None, ge=0, le=AREA_MAX)
     area_terreno: Decimal | None = Field(default=None, ge=0, le=AREA_MAX)
-    num_recamaras: int | None = Field(default=None, ge=0, le=RECAMARAS_MAX)
-    num_banos: int | None = Field(default=None, ge=0, le=BANOS_MAX)
-    num_estacionamientos: int | None = Field(default=None, ge=0, le=ESTACIONAMIENTOS_MAX)
-    niveles: int | None = Field(default=None, ge=0, le=NIVELES_MAX)
+    # Sin tope superior en el modelo base: los topes son de validación de ENTRADA
+    # (ver InmuebleCreate/InmuebleUpdate). En lectura toleramos datos preexistentes
+    # para no romper el serializado de toda la lista por un registro fuera de rango.
+    num_recamaras: int | None = Field(default=None, ge=0)
+    num_banos: int | None = Field(default=None, ge=0)
+    num_estacionamientos: int | None = Field(default=None, ge=0)
+    niveles: int | None = Field(default=None, ge=0)
     amueblado: bool = False
     ubicacion_id: int
 
@@ -164,7 +169,11 @@ class InmuebleBase(BaseModel):
 
 
 class InmuebleCreate(InmuebleBase):
-    pass
+    # Topes superiores SOLO en la entrada (evitan capturas absurdas).
+    num_recamaras: int | None = Field(default=None, ge=0, le=RECAMARAS_MAX)
+    num_banos: int | None = Field(default=None, ge=0, le=BANOS_MAX)
+    num_estacionamientos: int | None = Field(default=None, ge=0, le=ESTACIONAMIENTOS_MAX)
+    niveles: int | None = Field(default=None, ge=0, le=NIVELES_MAX)
 
 
 class InmuebleUpdate(BaseModel):

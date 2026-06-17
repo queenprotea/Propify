@@ -8,15 +8,22 @@ import DataTable from '../../components/DataTable'
 import Spinner from '../../components/Spinner'
 
 const TABS = [
+  { key: 'todas', label: 'Todas' },
   { key: 'activo', label: 'Activas' },
   { key: 'finalizado', label: 'Finalizadas' },
   { key: 'cancelado', label: 'Canceladas' },
 ]
 
+// Etiqueta legible del estado del contrato de renta.
+const ESTADO_LABEL = {
+  activo: 'Activa', finalizado: 'Finalizada', cancelado: 'Cancelada',
+  borrador: 'Borrador', pendiente_de_firma: 'Pendiente de firma', firmado: 'Firmada',
+}
+
 // Las rentas se originan desde solicitudes aprobadas del cliente. Aquí solo se
 // consultan y se cierran (finalizar/cancelar); el detalle vive en la vista de contrato.
 export default function RentsAdmin() {
-  const [tab, setTab] = useState('activo')
+  const [tab, setTab] = useState('todas')
   const [rentas, setRentas] = useState([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState({ ok: '', err: '' })
@@ -25,7 +32,7 @@ export default function RentsAdmin() {
 
   async function cargar() {
     setLoading(true)
-    try { setRentas(await contractsApi.listAll({ tipo: 'Renta', estado: tab })) }
+    try { setRentas(await contractsApi.listAll(tab === 'todas' ? { tipo: 'Renta' } : { tipo: 'Renta', estado: tab })) }
     catch (err) { setMsg({ ok: '', err: err.response?.data?.detail || 'No se pudieron cargar las rentas.' }) }
     finally { setLoading(false) }
   }
@@ -53,10 +60,11 @@ export default function RentsAdmin() {
     { key: 'inicio', header: 'Inicio', render: (r) => r.fecha_inicio },
     { key: 'fin', header: 'Vencimiento', render: (r) => r.fecha_fin || '—' },
     { key: 'monto', header: 'Renta', render: (r) => formatoMoneda(r.monto) },
+    { key: 'estado', header: 'Estado', render: (r) => ESTADO_LABEL[r.estado] || r.estado },
     { key: 'acc', header: 'Acciones', render: (r) => (
       <div className="row">
         <Link className="btn small secondary" to={`/admin/contratos/${r.id}`}>Detalle</Link>
-        {tab === 'activo' && <>
+        {r.estado === 'activo' && <>
           <button className="btn small" type="button" onClick={() => finalizar(r.id)}>Finalizar</button>
           <button className="btn small danger" type="button" onClick={() => cancelar(r.id)}>Cancelar</button>
         </>}
@@ -68,8 +76,8 @@ export default function RentsAdmin() {
       <h1>Gestión de rentas</h1>
       <div className="alert info">
         <strong>Finalizar</strong>: la renta concluyó normalmente (se registra como completada).<br />
-        <strong>Cancelar</strong>: la renta se anuló o no llegó a completarse. En ambos casos se conserva el historial;
-        la disponibilidad del inmueble se ajusta manualmente desde Inmuebles.
+        <strong>Cancelar</strong>: la renta se anuló o no llegó a completarse. En ambos casos se conserva el historial
+        y el inmueble vuelve automáticamente a estar disponible para renta.
       </div>
       <Alert type="error">{msg.err}</Alert>
       <Alert type="success">{msg.ok}</Alert>

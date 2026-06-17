@@ -1,9 +1,4 @@
-"""Generación de contratos en PDF, completos y diferenciados por operación.
 
-Se generan dos formatos profesionales (renta / venta) con todas las cláusulas,
-usando información real de cliente, inmueble, pagos y fechas. Listos para
-exportación/impresión y revisión jurídica posterior.
-"""
 from io import BytesIO
 from datetime import datetime, date
 from decimal import Decimal
@@ -17,7 +12,6 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 
-# La inmobiliaria actúa como ARRENDADOR / VENDEDOR (modelo agencia).
 EMPRESA = "Propify, S.A. de C.V."
 EMPRESA_RFC = "PRO000000XXX"
 EMPRESA_DOM = "Av. Principal 100, Col. Centro, Ciudad de México, C.P. 06000"
@@ -98,7 +92,7 @@ def _clausulas(st, titulo, items):
 
 
 def _clausulas_personalizadas(st, contrato):
-    """Cláusulas elegidas del catálogo, con sangría según su nivel jerárquico (2, 2.1, 2.1.1)."""
+    """Cláusulas elegidas del catálogo, con sangría según su nivel"""
     clausulas = sorted(
         getattr(contrato, "clausulas", []) or [],
         key=lambda c: [int(x) for x in (c.numero or "0").split(".") if x.isdigit()],
@@ -122,7 +116,7 @@ def _firmas(st):
     return t
 
 
-# ---------- documento principal ----------
+#documento principal
 def generar_pdf_contrato(contrato, cliente=None, inmueble=None, ubicacion=None, pagos=None):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=2.2 * cm, rightMargin=2.2 * cm,
@@ -139,7 +133,7 @@ def generar_pdf_contrato(contrato, cliente=None, inmueble=None, ubicacion=None, 
     return pdf
 
 
-# ---------- CONTRATO DE RENTA (ARRENDAMIENTO) ----------
+# CONTRATO DE RENTA (ARRENDAMIENTO)
 def _contrato_renta(st, c, cliente, inmueble, ubicacion, pagos):
     e = []
     e.append(Paragraph("CONTRATO DE ARRENDAMIENTO", st["Titulo"]))

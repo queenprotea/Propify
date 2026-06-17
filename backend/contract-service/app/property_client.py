@@ -1,4 +1,3 @@
-"""Comunicación con property-service (red interna de Docker)."""
 import os
 import requests
 from urllib.parse import quote
@@ -8,7 +7,6 @@ TIMEOUT = 5
 
 
 def get_inmueble(inmueble_id: int):
-    """Devuelve el inmueble o None si no existe."""
     try:
         r = requests.get(f"{PROPERTY_URL}/inmuebles/id/{inmueble_id}", timeout=TIMEOUT)
     except requests.RequestException as e:
@@ -20,12 +18,10 @@ def get_inmueble(inmueble_id: int):
 
 
 def estado_inmueble(inmueble: dict) -> str:
-    """Valor del estado del inmueble en la respuesta de property-service."""
     return ((inmueble or {}).get("estado_inmueble") or {}).get("valor", "")
 
 
 def get_ubicacion(ubicacion_id: int):
-    """Devuelve la ubicación o None (endpoint público)."""
     if not ubicacion_id:
         return None
     try:
@@ -38,7 +34,7 @@ def get_ubicacion(ubicacion_id: int):
 
 
 def set_estado_inmueble(inmueble_id: int, estado: str, auth_header: str):
-    """Actualiza el estado del inmueble (requiere token de administrador)."""
+    """Actualiza el estado del inmueble requiere token de administrador"""
     try:
         r = requests.patch(
             f"{PROPERTY_URL}/inmuebles/{inmueble_id}/estado-valor/{quote(estado)}",

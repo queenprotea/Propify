@@ -272,15 +272,15 @@ export default function PropertyDetail() {
         </div>
       )}
 
+      {/* Solicitar renta/compra son acciones de cliente: no se muestran al administrador. */}
+
       {/* Solicitud de renta en línea (al final, junto a su formulario) */}
-      {estadoDe(inm) === 'en renta' && (
+      {!isAdmin && estadoDe(inm) === 'en renta' && (
         <div className="card stack">
           <h2>Solicitar renta</h2>
           <Alert type="error">{rentaMsg.err}</Alert>
           <Alert type="success">{rentaMsg.ok}</Alert>
-          {isAdmin ? (
-            <p className="muted">Como administrador, registra la renta desde <strong>Rentas → Registrar renta manual</strong>.</p>
-          ) : isAuthenticated ? (
+          {isAuthenticated ? (
             <form onSubmit={solicitarRenta} className="stack">
               <p className="muted" style={{ margin: 0 }}>
                 Indica el periodo que deseas rentar. Podrás darle seguimiento en "Mis solicitudes".
@@ -305,14 +305,12 @@ export default function PropertyDetail() {
       )}
 
       {/* Solicitud de compra en línea (al final, junto a su formulario) */}
-      {estadoDe(inm) === 'en venta' && (
+      {!isAdmin && estadoDe(inm) === 'en venta' && (
         <div className="card stack">
           <h2>Solicitar compra</h2>
           <Alert type="error">{compraMsg.err}</Alert>
           <Alert type="success">{compraMsg.ok}</Alert>
-          {isAdmin ? (
-            <p className="muted">Como administrador, gestiona la venta desde <strong>Ventas</strong>.</p>
-          ) : isAuthenticated ? (
+          {isAuthenticated ? (
             <div className="row">
               <p className="muted" style={{ margin: 0, flex: 1, minWidth: 200 }}>
                 ¿Te interesa comprar este inmueble? Envía tu solicitud de compra y dale seguimiento desde tu panel.
