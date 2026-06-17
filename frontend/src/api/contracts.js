@@ -11,8 +11,6 @@ export const contractsApi = {
   listAll: (params = {}) => client.get('/contracts/contratos', { params }).then((r) => r.data),
   setEstado: (id, estado) => client.patch(`/contracts/contratos/${id}/estado`, { estado }).then((r) => r.data),
   validarDocumento: (id, data) => client.post(`/contracts/contratos/${id}/documento`, data).then((r) => r.data),
-  renovar: (id, data) => client.post(`/contracts/contratos/${id}/renovar`, data).then((r) => r.data),
-  rentaManual: (data) => client.post('/contracts/rentas/manual', data).then((r) => r.data),
   finalizar: (id) => client.patch(`/contracts/contratos/${id}/finalizar`).then((r) => r.data),
   cancelar: (id) => client.patch(`/contracts/contratos/${id}/cancelar`).then((r) => r.data),
 
@@ -20,6 +18,17 @@ export const contractsApi = {
   payments: (id) => client.get(`/contracts/contratos/${id}/pagos`).then((r) => r.data),
   addPayment: (contratoId, data) =>
     client.post(`/contracts/contratos/${contratoId}/pagos`, data).then((r) => r.data),
+  addPaymentTransferencia: (contratoId, monto, file, numeroCuota) => {
+    const form = new FormData()
+    form.append('monto', monto)
+    if (numeroCuota != null) form.append('numero_cuota', numeroCuota)
+    form.append('file', file)
+    return client
+      .post(`/contracts/contratos/${contratoId}/pagos/transferencia`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then((r) => r.data)
+  },
+  verificarPago: (pagoId, data) =>
+    client.patch(`/contracts/pagos/${pagoId}/verificar`, data).then((r) => r.data),
   pagarStripe: (contratoId, data) =>
     client.post(`/contracts/contratos/${contratoId}/pagos/stripe`, data).then((r) => r.data),
   resumen: (id) => client.get(`/contracts/contratos/${id}/resumen`).then((r) => r.data),
@@ -39,15 +48,8 @@ export const contractsApi = {
   signedBlob: (id) =>
     client.get(`/contracts/contratos/${id}/firmado`, { responseType: 'blob' }).then((r) => r.data),
 
-  // Comprobantes de pago
+  // Comprobantes de pago (se generan ligados a un pago por transferencia; aquí solo se listan/descargan)
   comprobantes: (id) => client.get(`/contracts/contratos/${id}/comprobantes`).then((r) => r.data),
-  uploadComprobante: (id, file) => {
-    const form = new FormData()
-    form.append('file', file)
-    return client
-      .post(`/contracts/contratos/${id}/comprobantes`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
-      .then((r) => r.data)
-  },
   comprobanteBlob: (compId) =>
     client.get(`/contracts/comprobantes/${compId}/archivo`, { responseType: 'blob' }).then((r) => r.data),
 }
@@ -84,10 +86,4 @@ export function descargarBlob(blob, nombre) {
   a.click()
   a.remove()
   window.URL.revokeObjectURL(url)
-}
-
-// payment-service bajo /api/payments/ (rutas internas /api/pagos/...)
-export const paymentsApi = {
-  start: (data) => client.post('/payments/api/pagos/iniciar', data).then((r) => r.data),
-  status: (pagoId) => client.get(`/payments/api/pagos/${pagoId}`).then((r) => r.data),
 }

@@ -190,7 +190,15 @@ class UserService:
         )
 
         if not estado:
-            raise ValueError("Invalid visit state")
+            raise ValueError("El estado de la visita no es válido")
+
+        # La visita debe agendarse a partir de mañana (no fechas pasadas ni el mismo día).
+        from datetime import datetime, timedelta, timezone
+        fecha = visit_data.fecha
+        hoy = datetime.now(timezone.utc).date()
+        fecha_dia = fecha.date() if hasattr(fecha, "date") else fecha
+        if fecha_dia <= hoy:
+            raise ValueError("La visita debe agendarse para una fecha posterior a hoy")
 
         return user_repository.create_visit(self.db, visit_data)
 

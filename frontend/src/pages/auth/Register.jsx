@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../../api/auth'
+import { validarNombre } from '../../utils/constants'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 
-const empty = { nombre: '', correo: '', telefono: '', password: '' }
+const empty = { nombre: '', correo: '', telefono: '', password: '', password2: '' }
 
 export default function Register() {
   const navigate = useNavigate()
@@ -18,12 +19,14 @@ export default function Register() {
   }
 
   function validar() {
-    if (form.nombre.trim().length < 2) return 'El nombre es obligatorio.'
+    const errNombre = validarNombre(form.nombre)
+    if (errNombre) return errNombre
     if (!/^\S+@\S+\.\S+$/.test(form.correo)) return 'Introduce un correo válido.'
     const p = form.password
     if (p.length < 8 || !/[A-Z]/.test(p) || !/[a-z]/.test(p) || !/\d/.test(p)) {
       return 'La contraseña debe tener 8+ caracteres, con mayúscula, minúscula y número.'
     }
+    if (form.password !== form.password2) return 'Las contraseñas no coinciden.'
     return ''
   }
 
@@ -68,6 +71,11 @@ export default function Register() {
             label="Contraseña" type="password" value={form.password} onChange={set('password')}
             required autoComplete="new-password" maxLength={30}
             hint="Mínimo 8 caracteres, con mayúscula, minúscula y número."
+          />
+          <Field
+            label="Confirmar contraseña" type="password" value={form.password2} onChange={set('password2')}
+            required autoComplete="new-password" maxLength={30}
+            error={form.password2 && form.password !== form.password2 ? 'Las contraseñas no coinciden.' : ''}
           />
           <button className="btn" type="submit" disabled={busy}>{busy ? 'Creando…' : 'Crear cuenta'}</button>
         </form>

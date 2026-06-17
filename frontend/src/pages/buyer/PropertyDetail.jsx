@@ -4,11 +4,19 @@ import { propertiesApi, contactsApi, historyApi } from '../../api/properties'
 import { visitsApi } from '../../api/users'
 import { rentalsApi } from '../../api/contracts'
 import { useAuth } from '../../context/AuthContext'
-import { capitalizar, formatoMoneda, estadoDe, tipoDe, usoDe, operacionDe, claseEstado } from '../../utils/constants'
+import { capitalizar, formatoMoneda, estadoDe, tipoDe, usoDe, operacionDe, claseEstado, validarTexto } from '../../utils/constants'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 import Spinner from '../../components/Spinner'
 import PropertyMap from '../../components/PropertyMap'
+
+const hoyISO = new Date().toISOString().slice(0, 10)
+// Mínimo para agendar visita: mañana a las 09:00 (no hoy ni fechas pasadas).
+const minVisitaLocal = (() => {
+  const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+})()
 
 export default function PropertyDetail() {
   const { id } = useParams()
@@ -54,6 +62,8 @@ export default function PropertyDetail() {
   async function enviarContacto(e) {
     e.preventDefault()
     setContactoMsg({ ok: '', err: '' })
+    const errTexto = validarTexto(contacto.nombre, 'El nombre') || validarTexto(contacto.mensaje, 'El mensaje')
+    if (errTexto) { setContactoMsg({ ok: '', err: errTexto }); return }
     try {
       await contactsApi.create({
         nombre: contacto.nombre.trim(),
@@ -84,6 +94,9 @@ export default function PropertyDetail() {
     setRentaMsg({ ok: '', err: '' })
     if (!renta.fecha_inicio || !renta.fecha_fin) {
       setRentaMsg({ ok: '', err: 'Indica las fechas de inicio y fin de la renta.' }); return
+    }
+    if (renta.fecha_inicio < hoyISO) {
+      setRentaMsg({ ok: '', err: 'La fecha de inicio no puede ser anterior a hoy.' }); return
     }
     if (new Date(renta.fecha_fin) <= new Date(renta.fecha_inicio)) {
       setRentaMsg({ ok: '', err: 'La fecha de fin debe ser posterior a la de inicio.' }); return
@@ -120,6 +133,10 @@ export default function PropertyDetail() {
   async function agendarVisita(e) {
     e.preventDefault()
     setVisitaMsg({ ok: '', err: '' })
+    // La visita debe ser a partir de mañana (no fechas pasadas ni el mismo día).
+    if (!visitaFecha || visitaFecha.slice(0, 10) <= hoyISO) {
+      setVisitaMsg({ ok: '', err: 'La visita debe agendarse para una fecha posterior a hoy.' }); return
+    }
     try {
       const estados = await visitsApi.states()
       const programada = estados.find((s) => s.valor === 'programada') || estados[0]
@@ -147,61 +164,6 @@ export default function PropertyDetail() {
         <span className="price" style={{ fontSize: '1.5rem' }}>{formatoMoneda(inm.precio)}</span>
         <span className={`badge ${claseEstado(estadoDe(inm))}`}>{capitalizar(estadoDe(inm))}</span>
       </p>
-
-      {/* Solicitud de renta en línea */}
-      {estadoDe(inm) === 'en renta' && (
-        <div className="card stack">
-          <h2>Renta en línea</h2>
-          <Alert type="error">{rentaMsg.err}</Alert>
-          <Alert type="success">{rentaMsg.ok}</Alert>
-          {isAdmin ? (
-            <p className="muted">Como administrador, registra la renta desde <strong>Rentas → Registrar renta manual</strong>.</p>
-          ) : isAuthenticated ? (
-            <form onSubmit={solicitarRenta} className="stack">
-              <p className="muted" style={{ margin: 0 }}>
-                Indica el periodo que deseas rentar. Podrás darle seguimiento en "Mis solicitudes".
-              </p>
-              <div className="grid form-2">
-                <Field label="Inicio de la renta" type="date" value={renta.fecha_inicio}
-                       onChange={(e) => setRenta((r) => ({ ...r, fecha_inicio: e.target.value }))} required />
-                <Field label="Fin de la renta" type="date" value={renta.fecha_fin}
-                       onChange={(e) => setRenta((r) => ({ ...r, fecha_fin: e.target.value }))} required />
-              </div>
-              {mesesEntre(renta.fecha_inicio, renta.fecha_fin) > 0 && (
-                <p className="muted" style={{ margin: 0 }}>
-                  Duración estimada: <strong>{mesesEntre(renta.fecha_inicio, renta.fecha_fin)} mes(es)</strong>
-                </p>
-              )}
-              <button className="btn" type="submit" disabled={!!rentaMsg.ok}>Solicitar renta</button>
-            </form>
-          ) : (
-            <p className="muted">Inicia sesión para solicitar la renta de este inmueble.</p>
-          )}
-        </div>
-      )}
-
-      {/* Solicitud de compra en línea */}
-      {estadoDe(inm) === 'en venta' && (
-        <div className="card stack">
-          <h2>Compra en línea</h2>
-          <Alert type="error">{compraMsg.err}</Alert>
-          <Alert type="success">{compraMsg.ok}</Alert>
-          {isAdmin ? (
-            <p className="muted">Como administrador, gestiona la venta desde <strong>Ventas</strong>.</p>
-          ) : isAuthenticated ? (
-            <div className="row">
-              <p className="muted" style={{ margin: 0, flex: 1, minWidth: 200 }}>
-                ¿Te interesa comprar este inmueble? Envía tu solicitud de compra y dale seguimiento desde tu panel.
-              </p>
-              <button className="btn" type="button" onClick={solicitarCompra} disabled={!!compraMsg.ok}>
-                Solicitar compra
-              </button>
-            </div>
-          ) : (
-            <p className="muted">Inicia sesión para solicitar la compra de este inmueble.</p>
-          )}
-        </div>
-      )}
 
       {/* Galería accesible: cada imagen con su texto alternativo */}
       <section aria-label="Fotografías del inmueble">
@@ -254,40 +216,46 @@ export default function PropertyDetail() {
         </div>
       </div>
 
-      {/* Contacto */}
-      <div className="card stack">
-        <h2>Contactar al anunciante</h2>
-        <Alert type="error">{contactoMsg.err}</Alert>
-        <Alert type="success">{contactoMsg.ok}</Alert>
-        <form onSubmit={enviarContacto} noValidate>
-          <div className="grid form-2">
-            <Field label="Tu nombre" value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} required maxLength={100} />
-            <Field label="Tu correo" type="email" value={contacto.correo} onChange={(e) => setContacto((c) => ({ ...c, correo: e.target.value }))} required maxLength={100} />
-          </div>
-          <Field label="Mensaje" as="textarea" value={contacto.mensaje} onChange={(e) => setContacto((c) => ({ ...c, mensaje: e.target.value }))} required maxLength={1000} />
-          <button className="btn" type="submit">Enviar mensaje</button>
-        </form>
-      </div>
-
-      {/* Agendar visita (requiere sesión) */}
-      <div className="card stack">
-        <h2>Agendar una visita</h2>
-        {isAuthenticated ? (
-          <>
-            <Alert type="error">{visitaMsg.err}</Alert>
-            <Alert type="success">{visitaMsg.ok}</Alert>
-            <form onSubmit={agendarVisita} noValidate>
-              <Field
-                label="Fecha y hora" type="datetime-local"
-                value={visitaFecha} onChange={(e) => setVisitaFecha(e.target.value)} required
-              />
-              <button className="btn" type="submit" disabled={!visitaFecha}>Agendar visita</button>
+      {/* Contacto y visita son acciones de cliente: no se muestran al administrador. */}
+      {!isAdmin && (
+        <>
+          {/* Contacto */}
+          <div className="card stack">
+            <h2>Contactar al anunciante</h2>
+            <Alert type="error">{contactoMsg.err}</Alert>
+            <Alert type="success">{contactoMsg.ok}</Alert>
+            <form onSubmit={enviarContacto} noValidate>
+              <div className="grid form-2">
+                <Field label="Tu nombre" value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} required maxLength={100} />
+                <Field label="Tu correo" type="email" value={contacto.correo} onChange={(e) => setContacto((c) => ({ ...c, correo: e.target.value }))} required maxLength={100} />
+              </div>
+              <Field label="Mensaje" as="textarea" value={contacto.mensaje} onChange={(e) => setContacto((c) => ({ ...c, mensaje: e.target.value }))} required maxLength={1000} />
+              <button className="btn" type="submit">Enviar mensaje</button>
             </form>
-          </>
-        ) : (
-          <p className="muted">Inicia sesión para agendar una visita.</p>
-        )}
-      </div>
+          </div>
+
+          {/* Agendar visita (requiere sesión de cliente) */}
+          <div className="card stack">
+            <h2>Agendar una visita</h2>
+            {isAuthenticated ? (
+              <>
+                <Alert type="error">{visitaMsg.err}</Alert>
+                <Alert type="success">{visitaMsg.ok}</Alert>
+                <form onSubmit={agendarVisita} noValidate>
+                  <Field
+                    label="Fecha y hora" type="datetime-local"
+                    value={visitaFecha} min={minVisitaLocal} onChange={(e) => setVisitaFecha(e.target.value)} required
+                    hint="La visita debe agendarse a partir de mañana."
+                  />
+                  <button className="btn" type="submit" disabled={!visitaFecha}>Agendar visita</button>
+                </form>
+              </>
+            ) : (
+              <p className="muted">Inicia sesión para agendar una visita.</p>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Historial de estados */}
       {historial.length > 0 && (
@@ -301,6 +269,61 @@ export default function PropertyDetail() {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Solicitud de renta en línea (al final, junto a su formulario) */}
+      {estadoDe(inm) === 'en renta' && (
+        <div className="card stack">
+          <h2>Solicitar renta</h2>
+          <Alert type="error">{rentaMsg.err}</Alert>
+          <Alert type="success">{rentaMsg.ok}</Alert>
+          {isAdmin ? (
+            <p className="muted">Como administrador, registra la renta desde <strong>Rentas → Registrar renta manual</strong>.</p>
+          ) : isAuthenticated ? (
+            <form onSubmit={solicitarRenta} className="stack">
+              <p className="muted" style={{ margin: 0 }}>
+                Indica el periodo que deseas rentar. Podrás darle seguimiento en "Mis solicitudes".
+              </p>
+              <div className="grid form-2">
+                <Field label="Inicio de la renta" type="date" value={renta.fecha_inicio} min={hoyISO}
+                       onChange={(e) => setRenta((r) => ({ ...r, fecha_inicio: e.target.value }))} required />
+                <Field label="Fin de la renta" type="date" value={renta.fecha_fin} min={renta.fecha_inicio || hoyISO}
+                       onChange={(e) => setRenta((r) => ({ ...r, fecha_fin: e.target.value }))} required />
+              </div>
+              {mesesEntre(renta.fecha_inicio, renta.fecha_fin) > 0 && (
+                <p className="muted" style={{ margin: 0 }}>
+                  Duración estimada: <strong>{mesesEntre(renta.fecha_inicio, renta.fecha_fin)} mes(es)</strong>
+                </p>
+              )}
+              <button className="btn" type="submit" disabled={!!rentaMsg.ok}>Solicitar renta</button>
+            </form>
+          ) : (
+            <p className="muted">Inicia sesión para solicitar la renta de este inmueble.</p>
+          )}
+        </div>
+      )}
+
+      {/* Solicitud de compra en línea (al final, junto a su formulario) */}
+      {estadoDe(inm) === 'en venta' && (
+        <div className="card stack">
+          <h2>Solicitar compra</h2>
+          <Alert type="error">{compraMsg.err}</Alert>
+          <Alert type="success">{compraMsg.ok}</Alert>
+          {isAdmin ? (
+            <p className="muted">Como administrador, gestiona la venta desde <strong>Ventas</strong>.</p>
+          ) : isAuthenticated ? (
+            <div className="row">
+              <p className="muted" style={{ margin: 0, flex: 1, minWidth: 200 }}>
+                ¿Te interesa comprar este inmueble? Envía tu solicitud de compra y dale seguimiento desde tu panel.
+              </p>
+              <button className="btn" type="button" onClick={solicitarCompra} disabled={!!compraMsg.ok}>
+                Solicitar compra
+              </button>
+            </div>
+          ) : (
+            <p className="muted">Inicia sesión para solicitar la compra de este inmueble.</p>
+          )}
         </div>
       )}
     </div>

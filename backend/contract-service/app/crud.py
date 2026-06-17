@@ -12,6 +12,7 @@ import models, schemas
 def crear_contrato(db: Session, datos: schemas.ContratoCreate, contrato_padre_id=None) -> models.Contrato:
     campos = datos.model_dump()
     clausula_ids = campos.pop("clausula_ids", []) or []
+    clausulas_nuevas = campos.pop("clausulas_nuevas", []) or []
     contrato = models.Contrato(**campos, contrato_padre_id=contrato_padre_id)
     db.add(contrato)
     db.commit()
@@ -22,14 +23,35 @@ def crear_contrato(db: Session, datos: schemas.ContratoCreate, contrato_padre_id
     contrato.folio = f"CTR-{anio}-{contrato.id:05d}"
     db.commit()
 
-    # Copiar al contrato las cláusulas elegidas del catálogo.
+    # Copiar al contrato las cláusulas elegidas del catálogo + las escritas al momento.
     copiar_clausulas_a_contrato(db, contrato, clausula_ids)
+    agregar_clausulas_nuevas(db, contrato, clausulas_nuevas)
 
     # Para contratos de RENTA se genera el calendario mensual de pagos.
     if contrato.tipo == "Renta":
         _generar_calendario_renta(db, contrato)
+    # Venta a plazos: si se pactaron varias mensualidades, se genera su calendario.
+    elif contrato.tipo == "Venta" and (contrato.meses_plazo or 1) > 1:
+        _generar_calendario_venta(db, contrato, contrato.meses_plazo)
     db.refresh(contrato)
     return contrato
+
+
+def _generar_calendario_venta(db: Session, contrato: models.Contrato, meses: int) -> None:
+    """Divide el precio de venta en `meses` mensualidades (la última ajusta el redondeo)."""
+    total = Decimal(contrato.monto)
+    cuota = (total / meses).quantize(Decimal("0.01"))
+    base = contrato.fecha_inicio or datetime.utcnow().date()
+    acumulado = Decimal("0.00")
+    for i in range(meses):
+        monto = cuota if i < meses - 1 else (total - acumulado)
+        acumulado += monto
+        db.add(models.Pago(
+            monto=monto, estado="pendiente", numero_cuota=i + 1,
+            fecha_vencimiento=base + relativedelta(months=i, day=31),
+            contrato_id=contrato.id,
+        ))
+    db.commit()
 
 
 # ─────────────────────────  CATÁLOGO DE CLÁUSULAS  ─────────────────────────
@@ -77,14 +99,28 @@ def copiar_clausulas_a_contrato(db: Session, contrato: models.Contrato, ids):
     db.commit()
 
 
+def agregar_clausulas_nuevas(db: Session, contrato: models.Contrato, nuevas):
+    """Cláusulas escritas directamente al generar el contrato (no provienen del catálogo)."""
+    if not nuevas:
+        return
+    for c in nuevas:
+        numero = c.get("numero") if isinstance(c, dict) else c.numero
+        titulo = c.get("titulo") if isinstance(c, dict) else c.titulo
+        texto = c.get("texto") if isinstance(c, dict) else c.texto
+        db.add(models.Clausula(numero=numero, titulo=titulo, descripcion=texto, id_contrato=contrato.id))
+    db.commit()
+
+
 def listar_contratos(db: Session, estado=None, tipo=None, usuario_id=None,
                      inmueble_id=None, fecha_desde=None, fecha_hasta=None,
-                     skip: int = 0, limit: int = 200):
+                     folio=None, skip: int = 0, limit: int = 200):
     q = db.query(models.Contrato)
     if estado:
         q = q.filter(models.Contrato.estado == estado)
     if tipo:
         q = q.filter(models.Contrato.tipo == tipo)
+    if folio:
+        q = q.filter(models.Contrato.folio.ilike(f"%{folio}%"))
     if usuario_id:
         q = q.filter(models.Contrato.usuario_id == usuario_id)
     if inmueble_id:
@@ -129,11 +165,14 @@ def _generar_calendario_renta(db: Session, contrato: models.Contrato) -> None:
             meses = 1
 
     for i in range(meses):
+        # La mensualidad vence al FINAL del mes correspondiente (fecha de corte),
+        # no el día de inicio: así una renta del mes en curso no aparece vencida.
+        vencimiento = contrato.fecha_inicio + relativedelta(months=i, day=31)
         cuota = models.Pago(
             monto=contrato.monto,
             estado="pendiente",
             numero_cuota=i + 1,
-            fecha_vencimiento=contrato.fecha_inicio + relativedelta(months=i),
+            fecha_vencimiento=vencimiento,
             contrato_id=contrato.id,
         )
         db.add(cuota)
@@ -171,6 +210,10 @@ def registrar_descarga(db: Session, contrato: models.Contrato) -> None:
 def registrar_firma(db: Session, contrato: models.Contrato, url_firmado: str) -> None:
     contrato.url_firmado = url_firmado
     contrato.fecha_firma_subida = datetime.utcnow()
+    # El documento (re)subido vuelve a quedar pendiente de validación; se limpia el
+    # motivo de un rechazo previo para que el admin pueda aprobarlo o rechazarlo de nuevo.
+    contrato.estado_documento = "pendiente"
+    contrato.motivo_rechazo = None
     db.commit()
     db.refresh(contrato)
 
@@ -218,13 +261,17 @@ def resumen_contrato(contrato: models.Contrato) -> schemas.ResumenContrato:
         proximo = venc[0] if venc else None
         n_pend = len(pendientes)
     else:
+        # Venta: total = precio; pagado = suma de pagos cubiertos (cuotas + abonos).
         total = Decimal(contrato.monto)
         pagado = sum((Decimal(p.monto) for p in contrato.pagos if p.estado == "pagado"), Decimal(0))
         saldo = total - pagado
         if saldo < 0:
             saldo = Decimal(0)
-        proximo = None
-        n_pend = 0
+        # Venta a plazos: hay mensualidades con número de cuota → reportar pendientes/vencimiento.
+        cuotas_plan = [p for p in contrato.pagos if p.numero_cuota and p.estado in ("pendiente", "vencido")]
+        venc = sorted([p.fecha_vencimiento for p in cuotas_plan if p.fecha_vencimiento])
+        proximo = venc[0] if venc else None
+        n_pend = len(cuotas_plan)
     pct = float(pagado / total * 100) if total > 0 else 0.0
     return schemas.ResumenContrato(
         contrato_id=contrato.id, tipo=contrato.tipo,
@@ -234,45 +281,79 @@ def resumen_contrato(contrato: models.Contrato) -> schemas.ResumenContrato:
     )
 
 
+def _metodo_str(metodo) -> str:
+    return metodo.value if hasattr(metodo, "value") else str(metodo)
+
+
+def _saldo_comprometido(contrato: models.Contrato) -> Decimal:
+    """Saldo de venta descontando lo pagado y lo que está pendiente de verificación."""
+    total = Decimal(contrato.monto)
+    comprometido = sum(
+        (Decimal(p.monto) for p in contrato.pagos
+         if p.estado in ("pagado", "pendiente_de_verificacion")),
+        Decimal(0),
+    )
+    saldo = total - comprometido
+    return saldo if saldo > 0 else Decimal(0)
+
+
 def registrar_pago(db: Session, contrato: models.Contrato, datos: schemas.PagoCreate,
-                   usuario_id=None, ip=None, stripe_payment_intent=None) -> models.Pago:
+                   usuario_id=None, ip=None, stripe_payment_intent=None,
+                   confirmado=False) -> models.Pago:
     """
-    Renta: liquida la mensualidad pendiente/vencida más antigua.
-    Venta: registra un pago (total o parcial) y liquida el contrato si el saldo llega a 0.
+    Registra un pago. Los pagos manuales (efectivo/transferencia) quedan en
+    'pendiente_de_verificacion' hasta que el administrador los apruebe; solo
+    Stripe confirmado (confirmado=True) entra directamente como 'pagado'.
+
+    Renta: ocupa la mensualidad pendiente/vencida más antigua.
+    Venta: registra un pago (total o parcial); liquida el contrato al aprobarse.
     """
     if contrato.estado not in ("activo",):
         raise ValueError(f"El contrato está '{contrato.estado}' y no acepta pagos")
 
-    if contrato.tipo == "Renta":
-        cuota = (
+    estado_inicial = "pagado" if confirmado else "pendiente_de_verificacion"
+    metodo = _metodo_str(datos.metodo)
+
+    numero_cuota = getattr(datos, "numero_cuota", None)
+    # Pago de una mensualidad concreta: renta siempre, o venta a plazos cuando se indica cuota.
+    if contrato.tipo == "Renta" or numero_cuota is not None:
+        q = (
             db.query(models.Pago)
             .filter(
                 models.Pago.contrato_id == contrato.id,
                 models.Pago.estado.in_(["pendiente", "vencido"]),
             )
-            .order_by(models.Pago.numero_cuota.asc())
-            .first()
         )
+        if numero_cuota is not None:
+            # Mensualidad específica elegida por el usuario (puede ser una atrasada).
+            cuota = q.filter(models.Pago.numero_cuota == numero_cuota).first()
+            if not cuota:
+                raise ValueError(f"La mensualidad #{numero_cuota} no existe o ya fue cubierta")
+        else:
+            cuota = q.order_by(models.Pago.numero_cuota.asc()).first()
         if not cuota:
-            raise ValueError("No hay mensualidades pendientes en este contrato de renta")
-        cuota.estado = "pagado"
-        cuota.metodo = datos.metodo
+            raise ValueError("No hay mensualidades pendientes en este contrato")
+        cuota.estado = estado_inicial
+        cuota.metodo = metodo
         cuota.fecha = datetime.utcnow()
         cuota.usuario_id = usuario_id
         cuota.ip = ip
         cuota.stripe_payment_intent = stripe_payment_intent
         db.commit()
         db.refresh(cuota)
+        # Venta liquidada al cubrir su última mensualidad (pago confirmado).
+        if confirmado and contrato.tipo == "Venta" and resumen_venta(contrato).liquidado:
+            contrato.estado = "liquidado"
+            db.commit()
         return cuota
 
-    # Venta: pago total o parcial
-    resumen = resumen_venta(contrato)
-    if Decimal(datos.monto) > resumen.saldo_pendiente:
+    # Venta: abono libre a capital (no atado a una mensualidad).
+    if Decimal(datos.monto) > _saldo_comprometido(contrato):
         raise ValueError(
-            f"El monto {datos.monto} supera el saldo pendiente ({resumen.saldo_pendiente})"
+            f"El monto {datos.monto} supera el saldo disponible ({_saldo_comprometido(contrato)})"
         )
     pago = models.Pago(
-        monto=datos.monto, metodo=datos.metodo, estado="pagado", fecha=datetime.utcnow(),
+        monto=datos.monto, metodo=metodo, estado=estado_inicial, fecha=datetime.utcnow(),
         contrato_id=contrato.id, usuario_id=usuario_id, ip=ip,
         stripe_payment_intent=stripe_payment_intent,
     )
@@ -280,11 +361,54 @@ def registrar_pago(db: Session, contrato: models.Contrato, datos: schemas.PagoCr
     db.commit()
     db.refresh(pago)
 
-    # ¿Saldo cero? → liquidar contrato
-    if resumen_venta(contrato).liquidado:
+    # Solo un pago confirmado puede liquidar el contrato.
+    if confirmado and resumen_venta(contrato).liquidado:
         contrato.estado = "liquidado"
         db.commit()
 
+    return pago
+
+
+class _PagoStripe:
+    """Adaptador mínimo para reutilizar registrar_pago con método 'stripe'."""
+    def __init__(self, monto, numero_cuota=None):
+        self.monto = monto
+        self.metodo = "stripe"
+        self.numero_cuota = numero_cuota
+
+
+def _registrar_pago_confirmado_stripe(db, contrato, monto, usuario_id, ip, intent_id, numero_cuota=None):
+    """Registra un pago de Stripe ya confirmado (entra como 'pagado')."""
+    return registrar_pago(db, contrato, _PagoStripe(monto, numero_cuota),
+                          usuario_id=usuario_id, ip=ip,
+                          stripe_payment_intent=intent_id, confirmado=True)
+
+
+def verificar_pago(db: Session, pago: models.Pago, aprobado: bool, motivo=None):
+    """El administrador aprueba (->pagado) o rechaza (->rechazado/pendiente) un pago manual."""
+    contrato = pago.contrato
+    if pago.estado != "pendiente_de_verificacion":
+        raise ValueError("Este pago no está pendiente de verificación")
+
+    if aprobado:
+        pago.estado = "pagado"
+        pago.fecha = datetime.utcnow()
+        db.commit()
+        db.refresh(pago)
+        # Venta liquidada al aprobar el pago que cubre el saldo.
+        if contrato.tipo == "Venta" and resumen_venta(contrato).liquidado:
+            contrato.estado = "liquidado"
+            db.commit()
+    else:
+        if contrato.tipo == "Renta":
+            # La mensualidad vuelve a quedar disponible para pago.
+            pago.estado = "pendiente"
+            pago.metodo = None
+            pago.fecha = None
+        else:
+            pago.estado = "rechazado"
+        db.commit()
+        db.refresh(pago)
     return pago
 
 

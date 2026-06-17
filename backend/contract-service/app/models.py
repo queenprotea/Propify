@@ -18,6 +18,7 @@ class Contrato(Base):
     motivo_rechazo     = Column(Text, nullable=True)
     condiciones        = Column(Text, nullable=True)
     contrato_padre_id  = Column(Integer, nullable=True)
+    meses_plazo        = Column(Integer, nullable=True)       # venta: nº de mensualidades (1 = pago único)
     url_archivo        = Column(Text, nullable=True)          # documento ORIGINAL
     url_firmado        = Column(Text, nullable=True)          # documento FIRMADO
     fecha_generacion   = Column(DateTime, nullable=False, default=datetime.utcnow)

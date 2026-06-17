@@ -5,6 +5,22 @@ from decimal import Decimal
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+# Caracteres que nunca deben aparecer en texto capturado por el usuario.
+_CARS_INVALIDOS = re.compile(r"[<>{}\[\]\\|^~`]")
+# Secuencias de símbolos repetidos (spam) como ¿¿??, ???, !!!, ***.
+_SIMBOLOS_SPAM = re.compile(r"[¿?¡!*#]{2,}")
+
+
+def validar_texto(v, campo="El texto"):
+    """Rechaza caracteres especiales inválidos y secuencias de símbolos sin sentido."""
+    if v is None:
+        return v
+    if _CARS_INVALIDOS.search(v):
+        raise ValueError(f"{campo} contiene caracteres no permitidos (< > {{ }} [ ] \\ | ^ ~ `)")
+    if _SIMBOLOS_SPAM.search(v):
+        raise ValueError(f"{campo} contiene una secuencia de símbolos no válida")
+    return v
+
 #------------------------------------
 #         Estado inmueble 
 #------------------------------------
@@ -49,14 +65,26 @@ class UbicacionBase(BaseModel):
     latitud: Decimal | None = None
     longitud: Decimal | None = None
     estado_id: int
-    ciudad: str
-    colonia: str 
-    calle: str 
-    numero_exterior: str
-    numero_interior: str | None = None
+    ciudad: str = Field(min_length=2, max_length=100)
+    colonia: str = Field(min_length=2, max_length=100)
+    calle: str = Field(min_length=1, max_length=100)
+    numero_exterior: str = Field(min_length=1, max_length=20)
+    numero_interior: str | None = Field(default=None, max_length=20)
     codigo_postal: str
 
-    
+    @field_validator("ciudad", "colonia", "calle", "numero_exterior", "numero_interior")
+    @classmethod
+    def _texto_dir(cls, v):
+        return validar_texto(v, "El campo de dirección")
+
+    @field_validator("codigo_postal")
+    @classmethod
+    def _cp(cls, v):
+        v = (v or "").strip()
+        if not re.fullmatch(r"\d{4,6}", v):
+            raise ValueError("El código postal debe tener entre 4 y 6 dígitos")
+        return v
+
 
 class UbicacionCreate(UbicacionBase):
     pass
@@ -99,39 +127,58 @@ class Ubicacion(UbicacionBase):
 #         Inmueble 
 #------------------------------------
 
+# Límites realistas del dominio inmobiliario. Un "Inmueble" puede ser un edificio
+# completo, por eso los topes son generosos pero acotados para evitar capturas absurdas.
+PRECIO_MAX = 9_999_999_999          # ~10 mil millones MXN
+AREA_MAX = 10_000_000               # m² (1,000 ha: cubre terrenos/ranchos grandes)
+RECAMARAS_MAX = 200
+BANOS_MAX = 200
+ESTACIONAMIENTOS_MAX = 1000
+NIVELES_MAX = 200
+
+
 class InmuebleBase(BaseModel):
     titulo: str = Field(min_length=5, max_length=100)
     descripcion: str | None = Field(default=None, max_length=2000)
-    precio: Decimal = Field(gt=0, le=999999999)
+    precio: Decimal = Field(gt=0, le=PRECIO_MAX)
     tipo_id: int
     estado_id: int
-    area_construccion: Decimal | None = Field(default=None, ge=0, le=1000000)
-    area_terreno: Decimal | None = Field(default=None, ge=0, le=1000000)
-    num_recamaras: int | None = Field(default=None, ge=0, le=100)
-    num_banos: int | None = Field(default=None, ge=0, le=100)
-    num_estacionamientos: int | None = Field(default=None, ge=0, le=100)
-    niveles: int | None = Field(default=None, ge=0, le=100)
+    area_construccion: Decimal | None = Field(default=None, ge=0, le=AREA_MAX)
+    area_terreno: Decimal | None = Field(default=None, ge=0, le=AREA_MAX)
+    num_recamaras: int | None = Field(default=None, ge=0, le=RECAMARAS_MAX)
+    num_banos: int | None = Field(default=None, ge=0, le=BANOS_MAX)
+    num_estacionamientos: int | None = Field(default=None, ge=0, le=ESTACIONAMIENTOS_MAX)
+    niveles: int | None = Field(default=None, ge=0, le=NIVELES_MAX)
     amueblado: bool = False
     ubicacion_id: int
 
-    
+    @field_validator("titulo")
+    @classmethod
+    def _titulo(cls, v):
+        return validar_texto(v, "El título")
+
+    @field_validator("descripcion")
+    @classmethod
+    def _descripcion(cls, v):
+        return validar_texto(v, "La descripción")
+
 
 class InmuebleCreate(InmuebleBase):
     pass
 
 
 class InmuebleUpdate(BaseModel):
-    titulo: str | None = None
-    descripcion: str | None = None
-    precio: Decimal | None = None
+    titulo: str | None = Field(default=None, min_length=5, max_length=100)
+    descripcion: str | None = Field(default=None, max_length=2000)
+    precio: Decimal | None = Field(default=None, gt=0, le=PRECIO_MAX)
     tipo_id: int | None = None
     estado_id: int | None = None
-    area_construccion: Decimal | None = None
-    area_terreno: Decimal | None = None
-    num_recamaras: int | None = None
-    num_banos: int | None = None
-    num_estacionamientos: int | None = None
-    niveles: int | None = None
+    area_construccion: Decimal | None = Field(default=None, ge=0, le=AREA_MAX)
+    area_terreno: Decimal | None = Field(default=None, ge=0, le=AREA_MAX)
+    num_recamaras: int | None = Field(default=None, ge=0, le=RECAMARAS_MAX)
+    num_banos: int | None = Field(default=None, ge=0, le=BANOS_MAX)
+    num_estacionamientos: int | None = Field(default=None, ge=0, le=ESTACIONAMIENTOS_MAX)
+    niveles: int | None = Field(default=None, ge=0, le=NIVELES_MAX)
     amueblado: bool | None = None
     ubicacion_id: int | None = None
     propietario_id: int | None = None
@@ -264,6 +311,11 @@ class ContactoBase(BaseModel):
         if not _EMAIL_RE.match(v):
             raise ValueError("El correo electrónico no tiene un formato válido")
         return v
+
+    @field_validator("nombre", "mensaje")
+    @classmethod
+    def _texto_contacto(cls, v):
+        return validar_texto(v, "El campo")
 
 
 class ContactoCreate(ContactoBase):

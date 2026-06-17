@@ -15,6 +15,23 @@ def validar_correo(v: str) -> str:
     return v
 
 
+# Solo letras (con acentos y ñ), espacios y los signos válidos en nombres: . ' -
+NOMBRE_RE = re.compile(r"^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ]+(?:[ .'\-][A-Za-zÁÉÍÓÚÜáéíóúüÑñ]+)*$")
+
+
+def validar_nombre(v: str) -> str:
+    v = " ".join((v or "").split())  # recorta y colapsa espacios
+    if len(v) < 2:
+        raise ValueError("El nombre es obligatorio (mínimo 2 caracteres)")
+    if len(v) > 100:
+        raise ValueError("El nombre no debe exceder 100 caracteres")
+    if any(ch.isdigit() for ch in v):
+        raise ValueError("El nombre no puede contener números")
+    if not NOMBRE_RE.match(v):
+        raise ValueError("El nombre solo admite letras, espacios y los signos . ' -")
+    return v
+
+
 def validar_telefono(v):
     if v is None:
         return v
@@ -49,10 +66,7 @@ class UserBase(BaseModel):
     @field_validator("nombre")
     @classmethod
     def _nombre(cls, v):
-        v = (v or "").strip()
-        if len(v) < 2:
-            raise ValueError("El nombre es obligatorio (mínimo 2 caracteres)")
-        return v
+        return validar_nombre(v)
 
     @field_validator("correo")
     @classmethod
@@ -121,12 +135,7 @@ class UserUpdate(BaseModel):
     @field_validator("nombre")
     @classmethod
     def _nombre(cls, v):
-        if v is None:
-            return v
-        v = v.strip()
-        if len(v) < 2:
-            raise ValueError("El nombre debe tener al menos 2 caracteres")
-        return v
+        return validar_nombre(v) if v is not None else v
 
     @field_validator("correo")
     @classmethod

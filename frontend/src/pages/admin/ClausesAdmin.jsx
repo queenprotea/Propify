@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { clausesApi } from '../../api/contracts'
+import { validarTexto } from '../../utils/constants'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 import Spinner from '../../components/Spinner'
@@ -31,6 +32,8 @@ export default function ClausesAdmin() {
     if (!/^\d+(\.\d+)*$/.test(nuevo.numero.trim())) {
       setMsg({ ok: '', err: 'El número debe ser jerárquico: dígitos separados por puntos (2, 2.1, 2.1.1).' }); return
     }
+    const errTexto = validarTexto(nuevo.titulo, 'El título') || validarTexto(nuevo.texto, 'El texto')
+    if (errTexto) { setMsg({ ok: '', err: errTexto }); return }
     try {
       await clausesApi.create({ numero: nuevo.numero.trim(), titulo: nuevo.titulo.trim(), texto: nuevo.texto.trim() })
       setNuevo(nuevoInit); setMsg({ ok: 'Cláusula agregada al catálogo.', err: '' }); cargar()

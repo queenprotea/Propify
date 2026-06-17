@@ -39,6 +39,13 @@ export default function PropertiesAdmin() {
   }
 
   async function cambiarEstado(inm, estadoId) {
+    if (Number(estadoId) === Number(inm.estado_id)) return
+    const nuevo = cat.estados.find((e) => Number(e.id) === Number(estadoId))
+    // Confirmación para evitar cambios accidentales de estado.
+    if (!window.confirm(`¿Cambiar el estado de "${inm.titulo}" a "${nuevo ? nuevo.valor : 'nuevo estado'}"?`)) {
+      cargar()  // restablece el selector al valor real
+      return
+    }
     setMsg({ ok: '', err: '' })
     try {
       const r = await propertiesApi.updateStatus(inm.id, Number(estadoId))

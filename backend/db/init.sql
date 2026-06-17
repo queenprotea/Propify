@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS "Contrato" (
     motivo_rechazo     TEXT,
     condiciones        TEXT,          -- condiciones especiales / observaciones
     contrato_padre_id  INTEGER        REFERENCES "Contrato"(id),  -- renovaciones
+    meses_plazo        INTEGER,                                    -- venta: nº de mensualidades (1 = pago único)
     url_archivo        TEXT,
     url_firmado        TEXT,
     fecha_generacion   TIMESTAMP      NOT NULL DEFAULT NOW(),
@@ -136,7 +137,7 @@ CREATE TABLE IF NOT EXISTS "Pago" (
     numero_cuota       INTEGER,
     metodo             VARCHAR(50),
     estado             VARCHAR(50)    NOT NULL DEFAULT 'pendiente'
-                       CHECK (estado IN ('pendiente','pagado','vencido','cancelado','reembolsado')),
+                       CHECK (estado IN ('pendiente','pendiente_de_verificacion','pagado','vencido','rechazado','cancelado','reembolsado')),
     contrato_id        INTEGER        NOT NULL REFERENCES "Contrato"(id),
     usuario_id         INTEGER,                 -- quién realizó/registró el pago
     ip                 VARCHAR(45),             -- IP de origen cuando esté disponible

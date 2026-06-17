@@ -20,7 +20,7 @@ export default function Login() {
     setError(''); setInfo(''); setSinVerificar(false)
     try {
       const user = await login(identifier.trim(), password)
-      const dest = location.state?.from || (user?.isAdmin ? '/admin' : '/')
+      const dest = location.state?.from || (user?.isAdmin ? '/admin/inmuebles' : '/')
       navigate(dest, { replace: true })
     } catch (err) {
       const detail = err.response?.data?.detail || 'No se pudo iniciar sesión. Verifica tus datos.'

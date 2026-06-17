@@ -1,8 +1,23 @@
+import re
 from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime
 from typing import List, Optional
 from decimal import Decimal
 from enum import Enum
+
+# Caracteres inválidos y secuencias de símbolos spam en texto capturado por el usuario.
+_CARS_INVALIDOS = re.compile(r"[<>{}\[\]\\|^~`]")
+_SIMBOLOS_SPAM = re.compile(r"[¿?¡!*#]{2,}")
+
+
+def validar_texto(v, campo="El texto"):
+    if v is None:
+        return v
+    if _CARS_INVALIDOS.search(v):
+        raise ValueError(f"{campo} contiene caracteres no permitidos (< > {{ }} [ ] \\ | ^ ~ `)")
+    if _SIMBOLOS_SPAM.search(v):
+        raise ValueError(f"{campo} contiene una secuencia de símbolos no válida")
+    return v
 
 
 #  Enums
@@ -26,11 +41,19 @@ class EstadoDocumento(str, Enum):
     rechazado = "rechazado"
 
 class EstadoPago(str, Enum):
-    pendiente   = "pendiente"
-    pagado      = "pagado"
-    vencido     = "vencido"
-    cancelado   = "cancelado"
-    reembolsado = "reembolsado"
+    pendiente                = "pendiente"
+    pendiente_de_verificacion = "pendiente_de_verificacion"
+    pagado                   = "pagado"
+    vencido                  = "vencido"
+    rechazado                = "rechazado"
+    cancelado                = "cancelado"
+    reembolsado              = "reembolsado"
+
+
+class MetodoPago(str, Enum):
+    transferencia = "transferencia"
+    efectivo      = "efectivo"
+    stripe        = "stripe"
 
 
 #  Pago
@@ -39,9 +62,30 @@ class PagoBase(BaseModel):
     monto:  Decimal
     metodo: str
 
-class PagoCreate(PagoBase):
-    """Payload para registrar/realizar un pago."""
-    pass
+class PagoCreate(BaseModel):
+    """Pago manual (efectivo o transferencia). Queda pendiente de verificación."""
+    monto:  Decimal
+    metodo: MetodoPago = MetodoPago.efectivo
+    numero_cuota: Optional[int] = None   # renta: mensualidad específica a cubrir
+
+    @field_validator("monto")
+    @classmethod
+    def _m(cls, v):
+        if v <= 0:
+            raise ValueError("El monto debe ser mayor que cero")
+        return v
+
+    @field_validator("metodo")
+    @classmethod
+    def _met(cls, v):
+        if v == MetodoPago.stripe:
+            raise ValueError("Usa el endpoint de Stripe para pagos con tarjeta")
+        return v
+
+
+class PagoVerificacion(BaseModel):
+    aprobado: bool
+    motivo:   Optional[str] = None
 
 class PagoStripeCreate(BaseModel):
     """Pago con tarjeta vía Stripe (PaymentIntent real).
@@ -51,6 +95,7 @@ class PagoStripeCreate(BaseModel):
     """
     monto:          Decimal
     payment_method: str
+    numero_cuota:   Optional[int] = None   # renta: mensualidad específica a cubrir
 
     @field_validator("monto")
     @classmethod
@@ -94,6 +139,11 @@ class ContratoBase(BaseModel):
     usuario_id:   int
     inmueble_id:  int
 
+    @field_validator("condiciones")
+    @classmethod
+    def _condiciones(cls, v):
+        return validar_texto(v, "Las condiciones")
+
     @field_validator("monto")
     @classmethod
     def monto_positivo(cls, v: Decimal) -> Decimal:
@@ -119,8 +169,24 @@ class ClausulaResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# Cláusula nueva escrita directamente al generar el contrato (no viene del catálogo).
+class ClausulaNueva(BaseModel):
+    numero: str = Field(max_length=20)
+    titulo: str = Field(max_length=200)
+    texto:  str = Field(max_length=2000)
+
+    @field_validator("titulo", "texto", "numero")
+    @classmethod
+    def _no_vacio(cls, v):
+        if not (v or "").strip():
+            raise ValueError("Campo obligatorio en la cláusula")
+        return validar_texto(v.strip(), "La cláusula")
+
+
 class ContratoCreate(ContratoBase):
-    clausula_ids: List[int] = []   # cláusulas del catálogo a incluir
+    clausula_ids: List[int] = []          # cláusulas del catálogo a incluir
+    clausulas_nuevas: List[ClausulaNueva] = []   # cláusulas escritas al momento
+    meses_plazo: Optional[int] = None     # venta a plazos: nº de mensualidades (1 = pago único)
 
 class ContratoResponse(ContratoBase):
     id:                 int
@@ -129,6 +195,7 @@ class ContratoResponse(ContratoBase):
     estado_documento:   EstadoDocumento = EstadoDocumento.pendiente
     motivo_rechazo:     Optional[str] = None
     contrato_padre_id:  Optional[int] = None
+    meses_plazo:        Optional[int] = None
     url_archivo:        Optional[str] = None
     url_firmado:        Optional[str] = None
     fecha_generacion:   Optional[datetime] = None
@@ -247,6 +314,7 @@ class GenerarContratoRenta(BaseModel):
     monto:        Decimal   # renta mensual (confirmada o modificada)
     condiciones:  Optional[str] = None   # observaciones del administrador
     clausula_ids: List[int] = []         # cláusulas del catálogo a incluir
+    clausulas_nuevas: List["ClausulaNueva"] = []
 
     @field_validator("monto")
     @classmethod
@@ -266,6 +334,7 @@ class RentaManualCreate(BaseModel):
     condiciones:  Optional[str] = None
     estado:       EstadoContrato = EstadoContrato.activo
     clausula_ids: List[int] = []
+    clausulas_nuevas: List["ClausulaNueva"] = []
 
     @field_validator("monto")
     @classmethod
@@ -300,12 +369,21 @@ class GenerarContratoVenta(BaseModel):
     monto:       Decimal   # precio de venta (confirmado o modificado)
     condiciones: Optional[str] = None
     clausula_ids: List[int] = []
+    clausulas_nuevas: List["ClausulaNueva"] = []
+    meses_plazo: int = 1   # 1 = pago único; >1 = venta a plazos (mensualidades)
 
     @field_validator("monto")
     @classmethod
     def _m(cls, v):
         if v <= 0:
             raise ValueError("El precio debe ser mayor que cero")
+        return v
+
+    @field_validator("meses_plazo")
+    @classmethod
+    def _meses(cls, v):
+        if v < 1 or v > 120:
+            raise ValueError("El plazo debe estar entre 1 y 120 meses")
         return v
 
 
@@ -332,7 +410,7 @@ class ClausulaCatalogoCreate(BaseModel):
     def _no_vacio(cls, v):
         if not (v or "").strip():
             raise ValueError("Campo obligatorio")
-        return v.strip()
+        return validar_texto(v.strip(), "La cláusula")
 
 
 class ClausulaCatalogoResponse(BaseModel):

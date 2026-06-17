@@ -19,18 +19,15 @@ export default function Layout({ children }) {
           <Link to="/" className="brand">Propify</Link>
           <nav className="main-nav" aria-label="Navegación principal">
             <ul>
-              <li><NavLink to="/">Inicio</NavLink></li>
+              <li><NavLink to="/" end>Inicio</NavLink></li>
               {isAdmin && (
                 <>
-                  <li><NavLink to="/admin">Panel</NavLink></li>
                   <li><NavLink to="/admin/inmuebles">Inmuebles</NavLink></li>
                   <li><NavLink to="/admin/solicitudes">Solicitudes</NavLink></li>
                   <li><NavLink to="/admin/usuarios">Usuarios</NavLink></li>
                   <li><NavLink to="/admin/contratos">Contratos</NavLink></li>
                   <li><NavLink to="/admin/rentas">Rentas</NavLink></li>
                   <li><NavLink to="/admin/ventas">Ventas</NavLink></li>
-                  <li><NavLink to="/admin/pagos">Pagos</NavLink></li>
-                  <li><NavLink to="/admin/catalogos">Catálogos</NavLink></li>
                   <li><NavLink to="/admin/clausulas">Cláusulas</NavLink></li>
                   <li><NavLink to="/admin/visitas">Visitas</NavLink></li>
                   <li><NavLink to="/admin/contactos">Contactos</NavLink></li>

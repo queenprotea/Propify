@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { authApi } from '../../api/auth'
+import { validarNombre } from '../../utils/constants'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
 
-const empty = { nombre: '', correo: '', telefono: '', password: '' }
+const empty = { nombre: '', correo: '', telefono: '', password: '', password2: '' }
 
 export default function RegisterAdmin() {
   const [form, setForm] = useState(empty)
@@ -18,6 +19,9 @@ export default function RegisterAdmin() {
   async function onSubmit(e) {
     e.preventDefault()
     setError(''); setOk('')
+    const errNombre = validarNombre(form.nombre)
+    if (errNombre) { setError(errNombre); return }
+    if (form.password !== form.password2) { setError('Las contraseñas no coinciden.'); return }
     setBusy(true)
     try {
       await authApi.registerAdmin({
@@ -44,12 +48,18 @@ export default function RegisterAdmin() {
         <Alert type="error">{error}</Alert>
         <Alert type="success">{ok}</Alert>
         <form onSubmit={onSubmit} noValidate>
-          <Field label="Nombre completo" value={form.nombre} onChange={set('nombre')} required />
-          <Field label="Correo electrónico" type="email" value={form.correo} onChange={set('correo')} required />
-          <Field label="Teléfono" type="tel" value={form.telefono} onChange={set('telefono')} hint="Opcional." />
+          <Field label="Nombre completo" value={form.nombre} onChange={set('nombre')} required minLength={2} maxLength={100} />
+          <Field label="Correo electrónico" type="email" value={form.correo} onChange={set('correo')} required maxLength={100} />
+          <Field label="Teléfono" type="tel" inputMode="numeric" maxLength={10} value={form.telefono}
+                 onChange={(e) => set('telefono')({ target: { value: e.target.value.replace(/\D/g, '') } })}
+                 hint="10 dígitos (opcional)." />
           <Field
-            label="Contraseña" type="password" value={form.password} onChange={set('password')} required
+            label="Contraseña" type="password" value={form.password} onChange={set('password')} required maxLength={30}
             hint="Mínimo 8 caracteres, con mayúscula, minúscula y número."
+          />
+          <Field
+            label="Confirmar contraseña" type="password" value={form.password2} onChange={set('password2')} required maxLength={30}
+            error={form.password2 && form.password !== form.password2 ? 'Las contraseñas no coinciden.' : ''}
           />
           <button className="btn" type="submit" disabled={busy}>{busy ? 'Registrando…' : 'Registrar administrador'}</button>
         </form>

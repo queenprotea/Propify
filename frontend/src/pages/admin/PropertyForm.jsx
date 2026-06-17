@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { propertiesApi, locationsApi, imagesApi } from '../../api/properties'
-import { capitalizar } from '../../utils/constants'
+import { capitalizar, validarTexto } from '../../utils/constants'
 import { useCategorias } from '../../hooks/useCategorias'
 import Field from '../../components/Field'
 import Alert from '../../components/Alert'
@@ -70,7 +70,7 @@ export default function PropertyForm() {
         if (v !== undefined && v !== null && v !== '') next[k] = String(v)
       }
       if (info.estado) {
-        const normaliza = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        const normaliza = (t) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
         const match = cat.estados_republica.find((e) => normaliza(e.valor) === normaliza(info.estado))
         if (match) next.estado_id = String(match.id)
       }
@@ -109,6 +109,12 @@ export default function PropertyForm() {
   async function onSubmit(e) {
     e.preventDefault()
     setMsg({ ok: '', err: '' })
+    // Validación de caracteres en los campos de texto antes de enviar.
+    const errTexto = validarTexto(inm.titulo, 'El título')
+      || validarTexto(inm.descripcion, 'La descripción')
+      || validarTexto(ubi.ciudad, 'La ciudad') || validarTexto(ubi.colonia, 'La colonia')
+      || validarTexto(ubi.calle, 'La calle')
+    if (errTexto) { setMsg({ ok: '', err: errTexto }); return }
     setBusy(true)
     try {
       if (editando) {
@@ -156,8 +162,6 @@ export default function PropertyForm() {
   return (
     <div className="stack" style={{ maxWidth: 800 }}>
       <h1>{editando ? 'Editar inmueble' : 'Publicar inmueble'}</h1>
-      <Alert type="error">{msg.err}</Alert>
-      <Alert type="success">{msg.ok}</Alert>
 
       <form onSubmit={onSubmit} noValidate className="stack">
         <fieldset className="card">
@@ -210,6 +214,9 @@ export default function PropertyForm() {
           </div>
         </fieldset>
 
+        {/* Retroalimentación junto a la acción que la genera. */}
+        <Alert type="error">{msg.err}</Alert>
+        <Alert type="success">{msg.ok}</Alert>
         <button className="btn" type="submit" disabled={busy}>
           {busy ? 'Guardando…' : (editando ? 'Guardar cambios' : 'Crear inmueble')}
         </button>

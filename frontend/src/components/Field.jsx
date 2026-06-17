@@ -10,6 +10,12 @@ export default function Field({
   const errId = error ? `${id}-err` : undefined
   const describedBy = [hintId, errId].filter(Boolean).join(' ') || undefined
 
+  // En inputs numéricos, bloquea la notación científica y signos (e, E, +, -)
+  // que el navegador admite por defecto en type="number".
+  const onKeyDown = type === 'number'
+    ? (e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault() }
+    : rest.onKeyDown
+
   const common = {
     id,
     value: value ?? '',
@@ -18,6 +24,7 @@ export default function Field({
     'aria-invalid': error ? 'true' : undefined,
     'aria-describedby': describedBy,
     ...rest,
+    ...(type === 'number' ? { onKeyDown } : {}),
   }
 
   return (

@@ -36,6 +36,30 @@ export function folioSolicitud(id) {
   return `SOL-${String(id).padStart(5, '0')}`
 }
 
+// Nombre: solo letras (con acentos y ñ), espacios y los signos . ' - (consistente con el backend).
+export const NOMBRE_RE = /^[A-Za-zÁÉÍÓÚÜáéíóúüÑñ]+(?:[ .'-][A-Za-zÁÉÍÓÚÜáéíóúüÑñ]+)*$/
+
+export function validarNombre(v) {
+  const n = (v || '').trim().replace(/\s+/g, ' ')
+  if (n.length < 2) return 'El nombre es obligatorio (mínimo 2 caracteres).'
+  if (n.length > 100) return 'El nombre no debe exceder 100 caracteres.'
+  if (/\d/.test(n)) return 'El nombre no puede contener números.'
+  if (!NOMBRE_RE.test(n)) return "El nombre solo admite letras, espacios y los signos . ' -"
+  return ''
+}
+
+// Texto libre: rechaza caracteres inválidos y secuencias de símbolos sin sentido
+// (consistente con el backend). Devuelve '' si es válido, o el mensaje de error.
+const _CARS_INVALIDOS = /[<>{}[\]\\|^~`]/
+const _SIMBOLOS_SPAM = /[¿?¡!*#]{2,}/
+
+export function validarTexto(v, campo = 'El texto') {
+  const s = v || ''
+  if (_CARS_INVALIDOS.test(s)) return `${campo} contiene caracteres no permitidos (< > { } [ ] \\ | ^ ~ \`).`
+  if (_SIMBOLOS_SPAM.test(s)) return `${campo} contiene una secuencia de símbolos no válida.`
+  return ''
+}
+
 export function capitalizar(s) {
   if (!s) return ''
   return s.charAt(0).toUpperCase() + s.slice(1)
