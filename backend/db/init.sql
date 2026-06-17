@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS "Usuario" (
     verification_token VARCHAR(64)
 );
 
--- ── Administrador inicial (seed) ──────────────────────────────────────
+--  Administrador inicial (seed)
 -- Credenciales por defecto: admin@propify.com / Admin1234
 -- El hash es bcrypt de 'Admin1234'.
 INSERT INTO "Usuario" (nombre, correo, telefono, password, is_admin, is_active, is_verified)
@@ -27,8 +27,7 @@ VALUES (
 )
 ON CONFLICT (correo) DO NOTHING;
 
--- ── EstadoRepublica ──────────────────────────────────────────────────
--- Catálogo de estados de México para poblar el selector del frontend.
+--  EstadoRepublica
 CREATE TABLE IF NOT EXISTS "EstadoRepublica" (
     id           SERIAL PRIMARY KEY,
     valor        VARCHAR(50) UNIQUE NOT NULL
@@ -40,8 +39,7 @@ INSERT INTO "EstadoRepublica" (valor) VALUES ('Aguascalientes'), ('Baja Californ
 ON CONFLICT DO NOTHING;
 
 
--- ── Ubicación ─────────────────────────────────────────────────
-
+-- Ubicación
 CREATE TABLE IF NOT EXISTS "Ubicacion" (
     id                 SERIAL PRIMARY KEY,
     latitud            DECIMAL(10,6),
@@ -56,7 +54,7 @@ CREATE TABLE IF NOT EXISTS "Ubicacion" (
 );
 
 
--- ── Catálogos de inmueble ────────────────────────
+--  Catálogos de inmueble
 CREATE TABLE IF NOT EXISTS "EstadoInmueble" (
     id    SERIAL PRIMARY KEY,
     valor VARCHAR(50) UNIQUE NOT NULL DEFAULT 'en venta'
@@ -69,14 +67,14 @@ CREATE TABLE IF NOT EXISTS "TipoInmueble" (
     id    SERIAL PRIMARY KEY,
     valor VARCHAR(50) UNIQUE NOT NULL DEFAULT 'departamento'
 );
--- Catálogo curado (sin valores redundantes/de nicho); ampliable desde el panel de Catálogos.
+
 INSERT INTO "TipoInmueble" (valor) VALUES
     ('casa'), ('casa en condominio'), ('departamento'), ('duplex'), ('edificio'),
     ('oficina'), ('local comercial'), ('bodega comercial'), ('terreno'), ('terreno comercial')
 ON CONFLICT DO NOTHING;
 
 
--- ── Inmueble ──────────────────────────────────────────────────
+--  Inmueble
 CREATE TABLE IF NOT EXISTS "Inmueble" (
     id                   SERIAL PRIMARY KEY,
     titulo               VARCHAR(150)   NOT NULL,
@@ -95,11 +93,7 @@ CREATE TABLE IF NOT EXISTS "Inmueble" (
     amueblado            BOOLEAN        DEFAULT FALSE
 );
 
--- ── Contrato ──────────────────────────────────────────────────
--- tipo = operación (Venta | Renta).
--- url_archivo  = documento ORIGINAL generado por el sistema.
--- url_firmado  = documento FIRMADO subido por cliente/administrador.
--- Trazabilidad: fecha_generacion, fecha_descarga, fecha_firma_subida.
+-- Contrato
 CREATE TABLE IF NOT EXISTS "Contrato" (
     id                 SERIAL PRIMARY KEY,
     fecha_inicio       DATE           NOT NULL,
@@ -111,13 +105,12 @@ CREATE TABLE IF NOT EXISTS "Contrato" (
                        CHECK (estado IN ('borrador','pendiente_de_firma','firmado',
                                          'activo','finalizado','cancelado','liquidado')),
     folio              VARCHAR(30)    UNIQUE,
-    -- Validación de la documentación firmada por parte del administrador.
     estado_documento   VARCHAR(20)    NOT NULL DEFAULT 'pendiente'
                        CHECK (estado_documento IN ('pendiente','aprobado','rechazado')),
     motivo_rechazo     TEXT,
-    condiciones        TEXT,          -- condiciones especiales / observaciones
-    contrato_padre_id  INTEGER        REFERENCES "Contrato"(id),  -- renovaciones
-    meses_plazo        INTEGER,                                    -- venta: nº de mensualidades (1 = pago único)
+    condiciones        TEXT,
+    contrato_padre_id  INTEGER        REFERENCES "Contrato"(id),
+    meses_plazo        INTEGER,
     url_archivo        TEXT,
     url_firmado        TEXT,
     fecha_generacion   TIMESTAMP      NOT NULL DEFAULT NOW(),
@@ -128,7 +121,6 @@ CREATE TABLE IF NOT EXISTS "Contrato" (
 );
 
 --  Pago
--- fecha_vencimiento + numero_cuota: para el calendario mensual de renta.
 CREATE TABLE IF NOT EXISTS "Pago" (
     id                 SERIAL PRIMARY KEY,
     monto              DECIMAL(12,2)  NOT NULL,
@@ -139,13 +131,13 @@ CREATE TABLE IF NOT EXISTS "Pago" (
     estado             VARCHAR(50)    NOT NULL DEFAULT 'pendiente'
                        CHECK (estado IN ('pendiente','pendiente_de_verificacion','pagado','vencido','rechazado','cancelado','reembolsado')),
     contrato_id        INTEGER        NOT NULL REFERENCES "Contrato"(id),
-    usuario_id         INTEGER,                 -- quién realizó/registró el pago
-    ip                 VARCHAR(45),             -- IP de origen cuando esté disponible
+    usuario_id         INTEGER,
+    ip                 VARCHAR(45),
     stripe_session_id  VARCHAR(255),
-    stripe_payment_intent VARCHAR(255)          -- id de transacción de la pasarela
+    stripe_payment_intent VARCHAR(255)
 );
 
--- Catálogo reutilizable de cláusulas, con numeración jerárquica (2, 2.1, 2.1.1).
+-- Catálogo reutilizable
 CREATE TABLE IF NOT EXISTS "ClausulaCatalogo" (
     id      SERIAL PRIMARY KEY,
     numero  VARCHAR(20)  NOT NULL,
@@ -171,7 +163,7 @@ CREATE TABLE IF NOT EXISTS "Clausula" (
     id_contrato  INTEGER NOT NULL REFERENCES "Contrato"(id)
 );
 
--- Imagen (descripcion = texto alternativo accesible, WCAG 1.1.1)
+-- Imagen
 CREATE TABLE IF NOT EXISTS "Imagen" (
     id           SERIAL PRIMARY KEY,
     url_archivo  TEXT    NOT NULL,
@@ -179,10 +171,7 @@ CREATE TABLE IF NOT EXISTS "Imagen" (
     inmueble_id  INTEGER NOT NULL REFERENCES "Inmueble"(id)
 );
 
--- ── Estado Visita ────────────────────────────────────────────────────
--- Ids fijos (orden de inserción): 1 programada, 2 confirmada, 3 realizada,
--- 4 cancelada, 5 no asistio. Los ids 1 y 2 son los estados "activos" que
--- ocupan un horario (ver índice de solapamiento más abajo).
+-- Estado Visita
 CREATE TABLE IF NOT EXISTS "EstadoVisita" (
     id           SERIAL PRIMARY KEY,
     valor        VARCHAR(50) UNIQUE NOT NULL DEFAULT 'programada'
@@ -193,7 +182,7 @@ INSERT INTO "EstadoVisita" (valor) VALUES
 ON CONFLICT DO NOTHING;
 
 
--- ── Visita ────────────────────────────────────────────────────
+--  Visita
 CREATE TABLE IF NOT EXISTS "Visita" (
     id           SERIAL PRIMARY KEY,
     fecha        TIMESTAMP    NOT NULL,
@@ -202,14 +191,12 @@ CREATE TABLE IF NOT EXISTS "Visita" (
     inmueble_id  INTEGER      NOT NULL REFERENCES "Inmueble"(id)
 );
 
--- Integridad a nivel BD: un inmueble no puede tener dos visitas ACTIVAS
--- (programada=1, confirmada=2) en la misma fecha y hora. Índice parcial:
--- permite reutilizar el horario si la visita previa fue cancelada/realizada.
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_visita_inmueble_fecha_activa
     ON "Visita" (inmueble_id, fecha)
     WHERE estado_id IN (1, 2);
 
--- ── HistorialEstado ───────────────────────────────────────────
+--  HistorialEstado
 CREATE TABLE IF NOT EXISTS "HistorialEstado" (
     id           SERIAL PRIMARY KEY,
     fecha_inicio TIMESTAMP    DEFAULT NOW(),
@@ -218,7 +205,7 @@ CREATE TABLE IF NOT EXISTS "HistorialEstado" (
     inmueble_id  INTEGER      NOT NULL REFERENCES "Inmueble"(id)
 );
 
--- ── HistorialPropietario ───────────────────────────────────────────
+--  HistorialPropietario
 CREATE TABLE IF NOT EXISTS "HistorialPropietario" (
     id               SERIAL PRIMARY KEY,
     inmueble_id      INTEGER NOT NULL REFERENCES "Inmueble"(id),
@@ -237,8 +224,7 @@ CREATE TABLE IF NOT EXISTS "Contacto" (
     inmueble_id INTEGER       NOT NULL REFERENCES "Inmueble"(id)
 );
 
--- ── SolicitudRenta ────────────────────────────────────────────
--- Flujo de renta en línea iniciado por el cliente.
+--  SolicitudRenta
 CREATE TABLE IF NOT EXISTS "SolicitudRenta" (
     id              SERIAL PRIMARY KEY,
     usuario_id      INTEGER     NOT NULL REFERENCES "Usuario"(id),
@@ -255,7 +241,7 @@ CREATE TABLE IF NOT EXISTS "SolicitudRenta" (
     contrato_id     INTEGER     REFERENCES "Contrato"(id)
 );
 
--- ── Comprobante de pago ───────────────────────────────────────
+-- Comprobante de pago
 CREATE TABLE IF NOT EXISTS "Comprobante" (
     id           SERIAL PRIMARY KEY,
     contrato_id  INTEGER   NOT NULL REFERENCES "Contrato"(id),
