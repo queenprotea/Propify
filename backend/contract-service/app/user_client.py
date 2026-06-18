@@ -1,4 +1,4 @@
-"""Comunicación con user-service (red interna de Docker)."""
+# Comunicación con user-service (red interna de Docker)
 import os
 import requests
 

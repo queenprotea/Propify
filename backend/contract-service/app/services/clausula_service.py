@@ -1,4 +1,4 @@
-"""Lógica de negocio del catálogo de cláusulas."""
+# Lógica de negocio del catálogo de cláusulas
 from fastapi import HTTPException
 
 import crud

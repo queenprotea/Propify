@@ -1,4 +1,4 @@
-"""Acceso a datos del payment-service (pagos y contratos)."""
+# Acceso a datos del payment-service (pagos y contratos)
 from datetime import datetime
 
 from sqlalchemy.orm import Session

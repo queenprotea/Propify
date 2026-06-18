@@ -1,4 +1,4 @@
-"""Lógica de negocio de contratos."""
+# Lógica de negocio de contratos
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -34,7 +34,7 @@ def liberar_inmueble_renta(inmueble_id: int, token: str | None = None) -> None:
 
 
 def auto_finalizar_rentas_vencidas(db) -> None:
-    """Finaliza rentas con plazo vencido y pagos cubiertos, liberando el inmueble."""
+    # Finaliza rentas vencidas y totalmente pagadas, liberando el inmueble
     for contrato in crud.rentas_para_autofinalizar(db):
         crud.cambiar_estado_contrato(db, contrato, "finalizado")
         try:

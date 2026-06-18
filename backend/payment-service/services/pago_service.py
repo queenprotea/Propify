@@ -1,4 +1,4 @@
-"""Lógica de negocio de pagos vía Stripe (inicio de sesión y webhook)."""
+# Lógica de negocio de pagos vía Stripe (inicio de sesión y webhook)
 import os
 
 from fastapi import HTTPException

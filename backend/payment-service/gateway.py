@@ -5,7 +5,7 @@ import os
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
-# Venta: pago unico / abono
+# Venta
 def crear_sesion_venta(
     monto: float,
     contrato_id: int,
@@ -13,7 +13,7 @@ def crear_sesion_venta(
     success_url: str,
     cancel_url: str,
 ) -> stripe.checkout.Session:
-    #Checkout Session de pago único.Cada llamada puede representar el total o un abono parcial del contrato.
+    # Sesión de checkout de venta
 
     return stripe.checkout.Session.create(
         payment_method_types=["card"],
@@ -38,7 +38,7 @@ def crear_sesion_venta(
     )
 
 
-# Renta: mensualidad
+# Renta
 
 def crear_sesion_renta(
     monto: float,
@@ -48,7 +48,7 @@ def crear_sesion_renta(
     cancel_url: str,
 ) -> stripe.checkout.Session:
 
-    #Genera una Checkout Session para una mensualidad de renta.
+    # Sesión de checkout de mensualidad de renta
 
     return stripe.checkout.Session.create(
         payment_method_types=["card"],
@@ -73,7 +73,7 @@ def crear_sesion_renta(
     )
 
 
-# Router principal
+# Crear sesión de pago
 
 def crear_sesion(
     tipo_contrato: str,
@@ -83,7 +83,7 @@ def crear_sesion(
     success_url: str = "https://mi-sitio.com/pago-exitoso",
     cancel_url: str  = "https://mi-sitio.com/pago-cancelado",
 ) -> stripe.checkout.Session:
-    #Despacha al flujo correcto según el tipo de contrato
+    # Selección del flujo según el tipo de contrato
     if tipo_contrato == "Venta":
         return crear_sesion_venta(monto, contrato_id, moneda, success_url, cancel_url)
     elif tipo_contrato == "Renta":
@@ -92,7 +92,7 @@ def crear_sesion(
         raise ValueError(f"Tipo de contrato desconocido: {tipo_contrato}")
 
 
-# Utilidades
+# Conversión de monto
 def _a_centavos(monto: float) -> int:
-    #Convierte pesos MXN a centavos (Stripe trabaja en la unidad menor)
+    # Convierte pesos a centavos
     return int(round(monto * 100))

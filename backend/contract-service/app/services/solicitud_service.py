@@ -1,4 +1,4 @@
-"""Lógica de negocio de solicitudes de renta/venta del cliente."""
+# Lógica de negocio de solicitudes de renta y venta
 from datetime import date, timedelta
 
 from fastapi import HTTPException

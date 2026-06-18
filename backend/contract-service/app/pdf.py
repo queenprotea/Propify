@@ -17,7 +17,7 @@ EMPRESA_RFC = "PRO000000XXX"
 EMPRESA_DOM = "Av. Principal 100, Col. Centro, Ciudad de México, C.P. 06000"
 
 
-# ---------- utilidades ----------
+# Utilidades
 def _money(v):
     try:
         return f"$ {Decimal(v):,.2f} MXN"
@@ -92,7 +92,7 @@ def _clausulas(st, titulo, items):
 
 
 def _clausulas_personalizadas(st, contrato):
-    """Cláusulas elegidas del catálogo, con sangría según su nivel"""
+    # Cláusulas con sangría según su nivel
     clausulas = sorted(
         getattr(contrato, "clausulas", []) or [],
         key=lambda c: [int(x) for x in (c.numero or "0").split(".") if x.isdigit()],
@@ -116,7 +116,7 @@ def _firmas(st):
     return t
 
 
-#documento principal
+# Documento principal
 def generar_pdf_contrato(contrato, cliente=None, inmueble=None, ubicacion=None, pagos=None):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=2.2 * cm, rightMargin=2.2 * cm,
@@ -133,7 +133,7 @@ def generar_pdf_contrato(contrato, cliente=None, inmueble=None, ubicacion=None, 
     return pdf
 
 
-# CONTRATO DE RENTA (ARRENDAMIENTO)
+# Contrato de renta
 def _contrato_renta(st, c, cliente, inmueble, ubicacion, pagos):
     e = []
     e.append(Paragraph("CONTRATO DE ARRENDAMIENTO", st["Titulo"]))
@@ -214,7 +214,7 @@ def _contrato_renta(st, c, cliente, inmueble, ubicacion, pagos):
     return e
 
 
-# ---------- CONTRATO DE COMPRAVENTA ----------
+# Contrato de compraventa
 def _contrato_venta(st, c, cliente, inmueble, ubicacion, pagos):
     e = []
     e.append(Paragraph("CONTRATO DE COMPRAVENTA", st["Titulo"]))

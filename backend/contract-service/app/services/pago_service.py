@@ -1,4 +1,4 @@
-"""Lógica de negocio de pagos (efectivo, transferencia y tarjeta/Stripe)."""
+# Lógica de negocio de pagos (efectivo, transferencia y tarjeta)
 from pathlib import Path
 import os
 

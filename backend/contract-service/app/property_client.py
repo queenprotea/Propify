@@ -34,7 +34,7 @@ def get_ubicacion(ubicacion_id: int):
 
 
 def set_estado_inmueble(inmueble_id: int, estado: str, auth_header: str):
-    """Actualiza el estado del inmueble requiere token de administrador"""
+    # Actualiza el estado del inmueble (requiere token de administrador)
     try:
         r = requests.patch(
             f"{PROPERTY_URL}/inmuebles/{inmueble_id}/estado-valor/{quote(estado)}",

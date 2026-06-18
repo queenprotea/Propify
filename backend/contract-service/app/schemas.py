@@ -20,7 +20,7 @@ def validar_texto(v, campo="El texto"):
     return v
 
 
-#  Enums
+# Enums
 
 class TipoContrato(str, Enum):
     venta = "Venta"
@@ -56,17 +56,17 @@ class MetodoPago(str, Enum):
     stripe        = "stripe"
 
 
-#  Pago
+# Pago
 
 class PagoBase(BaseModel):
     monto:  Decimal
     metodo: str
 
 class PagoCreate(BaseModel):
-    """Pago efectivo o transferencia. Queda pendiente de verificación."""
+    # Pago efectivo o transferencia
     monto:  Decimal
     metodo: MetodoPago = MetodoPago.efectivo
-    numero_cuota: Optional[int] = None   # renta: mensualidad específica a cubrir
+    numero_cuota: Optional[int] = None
 
     @field_validator("monto")
     @classmethod
@@ -88,10 +88,10 @@ class PagoVerificacion(BaseModel):
     motivo:   Optional[str] = None
 
 class PagoStripeCreate(BaseModel):
-   #pago via strpe
+    # Pago con tarjeta vía Stripe
     monto:          Decimal
     payment_method: str
-    numero_cuota:   Optional[int] = None   # renta: mensualidad específica a cubrir
+    numero_cuota:   Optional[int] = None
 
     @field_validator("monto")
     @classmethod
@@ -124,7 +124,7 @@ class PagoResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-#  Contrato
+# Contrato
 
 class ContratoBase(BaseModel):
     fecha_inicio: date
@@ -165,7 +165,7 @@ class ClausulaResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# Cláusula nueva escrita directamente al generar el contrato (no viene del catálogo).
+# Cláusula nueva
 class ClausulaNueva(BaseModel):
     numero: str = Field(max_length=20)
     titulo: str = Field(max_length=200)
@@ -180,9 +180,9 @@ class ClausulaNueva(BaseModel):
 
 
 class ContratoCreate(ContratoBase):
-    clausula_ids: List[int] = []          # cláusulas del catálogo a incluir
-    clausulas_nuevas: List[ClausulaNueva] = []   # cláusulas escritas al momento
-    meses_plazo: Optional[int] = None     # venta a plazos 1 = pago único
+    clausula_ids: List[int] = []
+    clausulas_nuevas: List[ClausulaNueva] = []
+    meses_plazo: Optional[int] = None
 
 class ContratoResponse(ContratoBase):
     id:                 int
@@ -208,7 +208,7 @@ class ContratoEstadoUpdate(BaseModel):
 
 class DocumentoValidacion(BaseModel):
     aprobado: bool
-    motivo:   Optional[str] = None   # requerido si se rechaza
+    motivo:   Optional[str] = None
 
 
 class RenovarContrato(BaseModel):
@@ -237,7 +237,7 @@ class ResumenContrato(BaseModel):
     proximo_vencimiento: Optional[date] = None
 
 
-#  Resumen de pagos de un contrato de Venta
+# Resumen de pagos de venta
 
 class ResumenVenta(BaseModel):
     contrato_id:        int
@@ -248,7 +248,7 @@ class ResumenVenta(BaseModel):
     liquidado:          bool
 
 
-#  Solicitud de renta
+# Solicitud de renta
 
 class EstadoSolicitud(str, Enum):
     pendiente    = "pendiente"
@@ -264,7 +264,7 @@ class TipoOperacion(str, Enum):
 class SolicitudCreate(BaseModel):
     inmueble_id:    int
     tipo_operacion: TipoOperacion = TipoOperacion.renta
-    fecha_inicio:   Optional[date] = None   # requeridas solo para renta
+    fecha_inicio:   Optional[date] = None
     fecha_fin:      Optional[date] = None
     duracion_meses: Optional[int] = None
     mensaje:        Optional[str] = None
@@ -300,13 +300,13 @@ class SolicitudResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-# GENERAR CONTRATO DE RENTA
+# Generar contrato de renta
 class GenerarContratoRenta(BaseModel):
     fecha_inicio: Optional[date] = None
     fecha_fin:    Optional[date] = None
-    monto:        Decimal   # renta mensual (confirmada o modificada)
-    condiciones:  Optional[str] = None   # observaciones del administrador
-    clausula_ids: List[int] = []         # cláusulas del catálogo a incluir
+    monto:        Decimal
+    condiciones:  Optional[str] = None
+    clausula_ids: List[int] = []
     clausulas_nuevas: List["ClausulaNueva"] = []
 
     @field_validator("monto")
@@ -317,7 +317,7 @@ class GenerarContratoRenta(BaseModel):
         return v
 
 
-# Registro manual de renta por el administrador (sin solicitud del cliente).
+# Generar contrato de renta
 class RentaManualCreate(BaseModel):
     usuario_id:   int
     inmueble_id:  int
@@ -344,7 +344,7 @@ class RentaManualCreate(BaseModel):
         return v
 
 
-#  Comprobante de pago
+# Comprobante de pago
 
 class ComprobanteResponse(BaseModel):
     id:          int
@@ -357,13 +357,13 @@ class ComprobanteResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# Generar contrato de COMPRAVENTA a partir de una solicitud de compra aprobada.
+# Generar contrato de compraventa
 class GenerarContratoVenta(BaseModel):
-    monto:       Decimal   # precio de venta
+    monto:       Decimal
     condiciones: Optional[str] = None
     clausula_ids: List[int] = []
     clausulas_nuevas: List["ClausulaNueva"] = []
-    meses_plazo: int = 1   # 1 = pago único; >1 = venta a plazos
+    meses_plazo: int = 1
 
     @field_validator("monto")
     @classmethod
@@ -380,7 +380,7 @@ class GenerarContratoVenta(BaseModel):
         return v
 
 
-#  Catálogo de cláusulas
+# Catálogo de cláusulas
 
 class ClausulaCatalogoCreate(BaseModel):
     numero: str

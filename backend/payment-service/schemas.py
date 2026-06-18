@@ -25,7 +25,7 @@ class IniciarPago(BaseModel):
 
 
 class RespuestaSesion(BaseModel):
-    """Devuelve la URL de Stripe a la que debe redirigirse el usuario."""
+
     checkout_url:     str
     stripe_session_id: str
     tipo_contrato:    TipoContrato

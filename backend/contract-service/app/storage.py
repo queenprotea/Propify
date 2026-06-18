@@ -1,4 +1,4 @@
-"""Infraestructura de almacenamiento de archivos de contratos (PDF y comprobantes)."""
+# Almacenamiento de archivos de contratos (PDF y comprobantes)
 from pathlib import Path
 import uuid
 
