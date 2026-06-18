@@ -1,49 +1,19 @@
-
-node_modules/
-packages/
-*.user
-*.suo
-bin/
-obj/
-.vs/
-.vscode/
-
-
-build/
-dist/
-*.dll
-*.exe
-
-
+# Secretos
 .env
-.env.local
-.env.*.local
+*.env
+!.env.example
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
 
+# Imágenes subidas en runtime
+property-service/app/static/propertyImages/
+
+# SO / editores
+.DS_Store
 .idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Docker
-*.log
-*.pid
-docker-compose.override.yml
-
-# Test results
-TestResults/
-coverage/
-*.trx
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS files
-Thumbs.db
-.DS_Store
-*.DS_Store
